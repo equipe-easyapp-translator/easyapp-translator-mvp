@@ -30,23 +30,37 @@ class ConversationEngine(
     private val main = Handler(Looper.getMainLooper())
     private val translators = mutableMapOf<String, Translator>()
     private var recognizer: SpeechRecognizer? = null
+    private var usingOfflineRecognizer = false
     private var textToSpeech: TextToSpeech? = null
     private var initialized = false
+    private var listenWhenReady = false
     private var closed = false
     private var generation = 0
     private var utteranceSequence = 0L
     private var activeUtteranceId: String? = null
 
     fun initialize(sourceLanguage: String, targetLanguage: String = "pt") {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            main.post { initialize(sourceLanguage, targetLanguage) }
+            return
+        }
         checkMainThread()
         if (closed || initialized) return
         initialized = true
         ConversationStateHolder.update { it.copy(sourceLanguage = sourceLanguage, targetLanguage = targetLanguage) }
         initializeSpeechRecognizer()
         initializeTextToSpeech()
+        if (listenWhenReady) {
+            listenWhenReady = false
+            listenForTurn()
+        }
     }
 
     fun setLanguages(source: String, target: String) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            main.post { setLanguages(source, target) }
+            return
+        }
         if (TranslationLanguages.mlKitCode(source) == null || TranslationLanguages.mlKitCode(target) == null) return
         generation++
         stopListening(clearPartial = true)
@@ -57,6 +71,11 @@ class ConversationEngine(
     }
 
     fun setSpeaker(speaker: ConversationSpeaker) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            main.post { setSpeaker(speaker) }
+            return
+        }
+        checkMainThread()
         generation++
         stopListening(clearPartial = true)
         activeUtteranceId = null
@@ -69,7 +88,7 @@ class ConversationEngine(
                 translatedText = "",
                 isListening = false,
                 isSpeaking = false,
-                status = if (it.offlineSpeechAvailable) {
+                status = if (it.speechRecognizerAvailable) {
                     "Agora fale em ${languageName(inputLanguage(it.sourceLanguage, it.targetLanguage, speaker))}."
                 } else speechUnavailableMessage(),
             )
@@ -78,15 +97,27 @@ class ConversationEngine(
     }
 
     fun listenForTurn() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            main.post { listenForTurn() }
+            return
+        }
         checkMainThread()
         if (closed) return
+        if (!initialized) {
+            listenWhenReady = true
+            updateStatus("Preparando o microfone e o serviço de reconhecimento…")
+            return
+        }
         if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             updateStatus("A permissão do microfone foi revogada. Reabra a conversa e autorize o microfone.")
             return
         }
+        if (recognizer == null) initializeSpeechRecognizer()
         val currentRecognizer = recognizer
         if (currentRecognizer == null) {
-            updateStatus(speechUnavailableMessage())
+            ConversationStateHolder.update {
+                it.copy(isListening = false, speechRecognizerAvailable = false, status = speechUnavailableMessage())
+            }
             return
         }
         generation++
@@ -101,7 +132,7 @@ class ConversationEngine(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, usingOfflineRecognizer)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
         ConversationStateHolder.update {
@@ -111,11 +142,12 @@ class ConversationEngine(
                 translatedText = "",
                 isListening = true,
                 isSpeaking = false,
-                status = "Ouvindo em ${languageName(inputLanguage(it.sourceLanguage, it.targetLanguage, speaker))}…",
+                status = "Ouvindo... Fale agora em ${languageName(inputLanguage(it.sourceLanguage, it.targetLanguage, speaker))}.",
             )
         }
-        currentRecognizer.setRecognitionListener(createRecognitionListener(generation, speaker, selectedSource, selectedTarget))
+        val turn = generation
         try {
+            currentRecognizer.setRecognitionListener(createRecognitionListener(turn, speaker, selectedSource, selectedTarget, intent, usingOfflineRecognizer))
             currentRecognizer.startListening(intent)
         } catch (_: SecurityException) {
             ConversationStateHolder.update { it.copy(isListening = false, status = "O Android bloqueou o acesso ao microfone.") }
@@ -125,6 +157,11 @@ class ConversationEngine(
     }
 
     fun pause() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            main.post { pause() }
+            return
+        }
+        checkMainThread()
         generation++
         activeUtteranceId = null
         stopListening(clearPartial = true)
@@ -133,6 +170,11 @@ class ConversationEngine(
     }
 
     fun cancelTurn() {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            main.post { cancelTurn() }
+            return
+        }
+        checkMainThread()
         generation++
         stopListening(clearPartial = true)
         ConversationStateHolder.update { it.copy(isListening = false, status = "Turno cancelado. Você pode tentar novamente.") }
@@ -190,32 +232,56 @@ class ConversationEngine(
     }
 
     private fun initializeSpeechRecognizer() {
+        checkMainThread()
         if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             updateStatus("Autorize o microfone para iniciar uma conversa.")
             return
         }
         try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                updateStatus("Reconhecimento local por voz requer Android 12 ou posterior. Atualize o Android para conversar com processamento no aparelho.")
-                return
-            }
             if (!SpeechRecognizer.isRecognitionAvailable(appContext)) {
-                updateStatus("Nenhum serviço de reconhecimento está instalado. Instale ou habilite um serviço de voz do Android.")
-                return
-            }
-            if (!SpeechRecognizer.isOnDeviceRecognitionAvailable(appContext)) {
-                updateStatus("O reconhecimento offline não está disponível. Instale os pacotes de voz offline nas Configurações do Android.")
-                return
-            }
-            recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(appContext).also { service ->
                 ConversationStateHolder.update {
-                    it.copy(offlineSpeechAvailable = true, status = "Reconhecimento offline pronto. Escolha quem fala e inicie um turno.")
+                    it.copy(speechRecognizerAvailable = false, offlineSpeechAvailable = false, status = "Nenhum serviço de reconhecimento de fala está instalado ou habilitado no Android.")
+                }
+                return
+            }
+            val canUseOnDevice = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                SpeechRecognizer.isOnDeviceRecognitionAvailable(appContext)
+            if (canUseOnDevice) {
+                recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(appContext)
+                usingOfflineRecognizer = true
+                ConversationStateHolder.update {
+                    it.copy(speechRecognizerAvailable = true, offlineSpeechAvailable = true, status = "Reconhecimento offline pronto. Escolha quem fala e toque em Ouvir turno.")
+                }
+            } else {
+                recognizer = SpeechRecognizer.createSpeechRecognizer(appContext)
+                usingOfflineRecognizer = false
+                ConversationStateHolder.update {
+                    it.copy(speechRecognizerAvailable = true, offlineSpeechAvailable = false, status = "Reconhecimento offline indisponível; será usado o serviço padrão de voz do Android.")
                 }
             }
         } catch (_: UnsupportedOperationException) {
-            ConversationStateHolder.update { it.copy(offlineSpeechAvailable = false, status = speechUnavailableMessage()) }
+            createStandardRecognizer("Reconhecimento offline indisponível; tentando o serviço padrão do Android.")
         } catch (_: RuntimeException) {
-            ConversationStateHolder.update { it.copy(offlineSpeechAvailable = false, status = "O serviço de reconhecimento offline falhou ao iniciar.") }
+            createStandardRecognizer("Falha ao iniciar o reconhecimento offline; tentando o serviço padrão do Android.")
+        }
+    }
+
+    private fun createStandardRecognizer(statusMessage: String) {
+        checkMainThread()
+        try {
+            if (!SpeechRecognizer.isRecognitionAvailable(appContext)) {
+                ConversationStateHolder.update { it.copy(speechRecognizerAvailable = false, offlineSpeechAvailable = false, status = speechUnavailableMessage()) }
+                return
+            }
+            recognizer?.destroy()
+            recognizer = SpeechRecognizer.createSpeechRecognizer(appContext)
+            usingOfflineRecognizer = false
+            ConversationStateHolder.update {
+                it.copy(speechRecognizerAvailable = true, offlineSpeechAvailable = false, status = statusMessage)
+            }
+        } catch (_: RuntimeException) {
+            recognizer = null
+            ConversationStateHolder.update { it.copy(speechRecognizerAvailable = false, offlineSpeechAvailable = false, status = "O serviço padrão de reconhecimento de fala também falhou ao iniciar.") }
         }
     }
 
@@ -244,7 +310,10 @@ class ConversationEngine(
         speaker: ConversationSpeaker,
         selectedSource: String,
         selectedTarget: String,
+        originalIntent: Intent,
+        allowSystemFallback: Boolean,
     ) = object : RecognitionListener {
+        private var fallbackAttempted = false
         private fun isCurrentTurn() = !closed && turnGeneration == generation
 
         override fun onReadyForSpeech(params: Bundle?) {
@@ -278,19 +347,68 @@ class ConversationEngine(
         }
 
         override fun onError(error: Int) {
+            if (Looper.myLooper() != Looper.getMainLooper()) {
+                main.post { onError(error) }
+                return
+            }
             if (!isCurrentTurn()) return
             if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
                 onMicrophonePermissionRevoked()
                 return
             }
+            if (allowSystemFallback && !fallbackAttempted && shouldTrySystemFallback(error)) {
+                fallbackAttempted = true
+                if (startSystemFallback(this, originalIntent, turnGeneration)) return
+            }
             val message = when (error) {
                 SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Não detectei fala. Fale mais perto do microfone e tente novamente."
-                SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> "O pacote offline deste idioma não está instalado. Baixe-o em Configurações do Android → Sistema → Idiomas e entrada → Reconhecimento de fala."
-                SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER, SpeechRecognizer.ERROR_SERVER_DISCONNECTED -> "O serviço offline não concluiu o reconhecimento. Verifique o pacote de voz offline e tente de novo; o EasyApp não guarda o áudio."
+                SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> when {
+                    fallbackAttempted -> "O serviço padrão do Android também não oferece suporte a este idioma (erro $error). Baixe o pacote de voz em Configurações → Reconhecimento de fala."
+                    allowSystemFallback -> "O pacote offline deste idioma não está disponível (erro $error). Tentando o serviço padrão; baixe o idioma offline se quiser usar sem rede."
+                    else -> "O serviço padrão do Android não oferece suporte a este idioma (erro $error). Baixe um pacote de voz compatível."
+                }
+                SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER, SpeechRecognizer.ERROR_SERVER_DISCONNECTED -> when {
+                    fallbackAttempted -> "O reconhecimento offline e o serviço padrão falharam (erro $error). Verifique a conexão ou instale o pacote de voz offline."
+                    allowSystemFallback -> "O serviço offline não concluiu o reconhecimento (erro $error). Tentando novamente pelo serviço padrão do Android; o EasyApp não guarda o áudio."
+                    else -> "O serviço padrão de reconhecimento falhou (erro $error). Verifique a conexão ou instale o pacote de voz offline."
+                }
                 SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "O serviço de voz ainda está ocupado. Aguarde um instante e tente novamente."
                 else -> "O reconhecimento de fala falhou (erro $error). Verifique o serviço de voz do Android e tente novamente."
             }
             ConversationStateHolder.update { it.copy(isListening = false, partialTranscript = "", status = message) }
+        }
+    }
+
+    private fun shouldTrySystemFallback(error: Int): Boolean = error in setOf(
+        SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED,
+        SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE,
+        SpeechRecognizer.ERROR_NETWORK,
+        SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
+        SpeechRecognizer.ERROR_SERVER,
+        SpeechRecognizer.ERROR_SERVER_DISCONNECTED,
+    )
+
+    private fun startSystemFallback(listener: RecognitionListener, originalIntent: Intent, turnGeneration: Int): Boolean {
+        checkMainThread()
+        if (!SpeechRecognizer.isRecognitionAvailable(appContext) || turnGeneration != generation || closed) return false
+        return try {
+            val fallback = SpeechRecognizer.createSpeechRecognizer(appContext)
+            recognizer?.let { previous ->
+                runCatching { previous.cancel() }
+                runCatching { previous.destroy() }
+            }
+            recognizer = fallback
+            usingOfflineRecognizer = false
+            fallback.setRecognitionListener(listener)
+            ConversationStateHolder.update {
+                it.copy(isListening = true, speechRecognizerAvailable = true, offlineSpeechAvailable = false, status = "Pacote offline indisponível; tentando o reconhecimento padrão do Android…")
+            }
+            val fallbackIntent = Intent(originalIntent).putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, false)
+            fallback.startListening(fallbackIntent)
+            true
+        } catch (_: RuntimeException) {
+            ConversationStateHolder.update { it.copy(isListening = false, status = "O serviço offline falhou e o reconhecimento padrão do Android também não iniciou.") }
+            false
         }
     }
 
@@ -322,7 +440,7 @@ class ConversationEngine(
         turnGeneration: Int,
     ) {
         val inputLanguage = inputLanguage(selectedSource, selectedTarget, speaker)
-        val outputLanguage = if (speaker == ConversationSpeaker.USER_PORTUGUESE) selectedTarget else selectedSource
+        val outputLanguage = if (speaker == ConversationSpeaker.USER_PORTUGUESE) selectedSource else selectedTarget
         val source = TranslationLanguages.mlKitCode(inputLanguage) ?: return
         val target = TranslationLanguages.mlKitCode(outputLanguage) ?: return
         val targetLocale = TranslationLanguages.choice(outputLanguage).tag
@@ -394,7 +512,7 @@ class ConversationEngine(
     private fun refreshOfflineVoices() {
         val engine = textToSpeech ?: return
         val snapshot = ConversationStateHolder.state.value
-        val targetLanguage = if (snapshot.speaker == ConversationSpeaker.USER_PORTUGUESE) snapshot.targetLanguage else snapshot.sourceLanguage
+        val targetLanguage = if (snapshot.speaker == ConversationSpeaker.USER_PORTUGUESE) snapshot.sourceLanguage else snapshot.targetLanguage
         val allOffline = engine.voices.orEmpty().filter { !it.isNetworkConnectionRequired }
         val choices = allOffline.filter { it.locale.language == targetLanguage }
             .sortedWith(compareBy<Voice>({ if (targetLanguage == "pt" && it.locale.country == "BR") 0 else 1 }, { it.name }))
@@ -418,6 +536,7 @@ class ConversationEngine(
     }
 
     private fun stopListening(clearPartial: Boolean) {
+        checkMainThread()
         if (ConversationStateHolder.state.value.isListening) runCatching { recognizer?.cancel() }
         if (clearPartial) ConversationStateHolder.update { it.copy(partialTranscript = "", isListening = false) }
     }
@@ -436,7 +555,7 @@ class ConversationEngine(
     private fun inputLanguageTag(language: String) = TranslationLanguages.choice(language).tag
 
     private fun inputLanguage(source: String, target: String, speaker: ConversationSpeaker) =
-        if (speaker == ConversationSpeaker.USER_PORTUGUESE) source else target
+        if (speaker == ConversationSpeaker.USER_PORTUGUESE) target else source
 
     private fun languageName(language: String) = TranslationLanguages.choice(language).label.lowercase(Locale.ROOT)
 }

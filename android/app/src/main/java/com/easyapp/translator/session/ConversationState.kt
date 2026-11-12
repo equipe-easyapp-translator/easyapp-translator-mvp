@@ -25,6 +25,7 @@ data class ConversationSnapshot(
     val availableVoices: List<OfflineVoiceOption> = emptyList(),
     val selectedVoiceId: String? = null,
     val offlineSpeechAvailable: Boolean = false,
+    val speechRecognizerAvailable: Boolean = false,
     val offlineTtsAvailable: Boolean = false,
 )
 

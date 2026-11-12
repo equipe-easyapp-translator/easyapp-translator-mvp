@@ -77,7 +77,16 @@ class SessionService : Service() {
                 overlay?.show(emptyList(), "Aguardando texto na tela…")
                 updateNotification()
             }
-            ACTION_CONVERSATION_LISTEN -> conversationEngine?.listenForTurn()
+            ACTION_CONVERSATION_LISTEN -> mainHandler.post {
+                val engine = conversationEngine
+                if (engine == null) {
+                    ConversationStateHolder.update {
+                        it.copy(isListening = false, status = "Preparando o reconhecimento de voz. Aguarde um instante e tente novamente.")
+                    }
+                } else {
+                    engine.listenForTurn()
+                }
+            }
             ACTION_CONVERSATION_CANCEL -> conversationEngine?.cancelTurn()
             ACTION_CONVERSATION_SPEAKER -> intent.getStringExtra(EXTRA_CONVERSATION_SPEAKER)
                 ?.let { value -> ConversationSpeaker.entries.firstOrNull { it.name == value } }

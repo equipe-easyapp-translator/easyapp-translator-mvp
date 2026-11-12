@@ -323,35 +323,36 @@ private fun ConversationCard(
                     selected = state.speaker == ConversationSpeaker.USER_PORTUGUESE,
                     onClick = { onSpeakerSelected(ConversationSpeaker.USER_PORTUGUESE) },
                     enabled = enabled && !state.isListening,
-                    label = { Text("Origem · ${languageLabel(sourceLanguage)}") },
+                    label = { Text("Você · ${languageLabel(targetLanguage)}") },
                 )
                 FilterChip(
                     selected = state.speaker == ConversationSpeaker.INTERLOCUTOR,
                     onClick = { onSpeakerSelected(ConversationSpeaker.INTERLOCUTOR) },
                     enabled = enabled && !state.isListening,
-                    label = { Text("Destino · ${languageLabel(targetLanguage)}") },
+                    label = { Text("Interlocutor · ${languageLabel(sourceLanguage)}") },
                 )
             }
-            Text(state.status, style = MaterialTheme.typography.bodySmall, color = if (state.offlineSpeechAvailable) Green else Muted)
+            Text(state.status, style = MaterialTheme.typography.bodySmall, color = if (state.speechRecognizerAvailable) Green else Muted)
             if (state.partialTranscript.isNotBlank() || state.finalTranscript.isNotBlank()) {
                 val speakerLabel = if (state.speaker == ConversationSpeaker.USER_PORTUGUESE) "Você" else "Interlocutor"
-                Text("${if (state.partialTranscript.isNotBlank()) "$speakerLabel · ao vivo" else "$speakerLabel disse"}: ${state.partialTranscript.ifBlank { state.finalTranscript }}", style = MaterialTheme.typography.bodyMedium, color = Ink)
+                val transcriptLabel = if (state.partialTranscript.isNotBlank()) "$speakerLabel · transcrição ao vivo" else "$speakerLabel disse"
+                Text("$transcriptLabel: ${state.partialTranscript.ifBlank { state.finalTranscript }}", style = MaterialTheme.typography.bodyMedium, color = Ink)
             }
             if (state.translatedText.isNotBlank()) {
-                val outputLanguage = if (state.speaker == ConversationSpeaker.USER_PORTUGUESE) targetLanguage else sourceLanguage
-                Text("Tradução · ${languageLabel(outputLanguage)}", style = MaterialTheme.typography.labelMedium, color = Green, fontWeight = FontWeight.Bold)
+                val outputLanguage = if (state.speaker == ConversationSpeaker.USER_PORTUGUESE) sourceLanguage else targetLanguage
+                Text("Tradução para ${languageLabel(outputLanguage)}:", style = MaterialTheme.typography.labelMedium, color = Green, fontWeight = FontWeight.Bold)
                 Text(state.translatedText, style = MaterialTheme.typography.titleMedium, color = Ink)
             }
             if (state.isListening) {
                 OutlinedButton(onClick = onCancel, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text("Parar escuta") }
             } else {
-                Button(onClick = onListen, enabled = enabled && state.offlineSpeechAvailable, modifier = Modifier.fillMaxWidth()) {
-                    Text("Ouvir turno em ${languageLabel(if (state.speaker == ConversationSpeaker.USER_PORTUGUESE) sourceLanguage else targetLanguage)}")
+                Button(onClick = onListen, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+                    Text("Ouvir turno em ${languageLabel(if (state.speaker == ConversationSpeaker.USER_PORTUGUESE) targetLanguage else sourceLanguage)}")
                 }
             }
             OutlinedButton(
                 onClick = onRepeat,
-                enabled = enabled && state.repeatText.isNotBlank() && state.offlineTtsAvailable,
+                enabled = enabled && state.repeatText.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(if (state.isSpeaking) "Repetir tradução" else "Repetir áudio traduzido") }
 
@@ -380,7 +381,12 @@ private fun ConversationCard(
             Slider(value = state.speechRate, onValueChange = onRateChanged, valueRange = 0.65f..1.35f, steps = 6, enabled = enabled && state.offlineTtsAvailable)
             Text("Volume · ${(state.volume * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = Ink)
             Slider(value = state.volume, onValueChange = onVolumeChanged, valueRange = 0.1f..1f, steps = 8, enabled = enabled && state.offlineTtsAvailable)
-            Text("Reconhecimento e síntese: ${if (state.offlineSpeechAvailable) "offline" else "indisponíveis"} / ${if (state.offlineTtsAvailable) "voz offline disponível" else "sem voz offline compatível"}.", style = MaterialTheme.typography.bodySmall, color = Muted)
+            val recognitionMode = when {
+                state.offlineSpeechAvailable -> "offline"
+                state.speechRecognizerAvailable -> "serviço padrão do Android"
+                else -> "indisponível"
+            }
+            Text("Reconhecimento: $recognitionMode · Síntese: ${if (state.offlineTtsAvailable) "voz offline disponível" else "sem voz offline compatível"}.", style = MaterialTheme.typography.bodySmall, color = Muted)
         }
     }
 }
