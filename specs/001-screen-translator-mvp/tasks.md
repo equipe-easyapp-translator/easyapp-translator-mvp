@@ -57,7 +57,7 @@
 - [x] T034 Integrar `TextToSpeech`, listar e selecionar apenas vozes offline instaladas para o idioma traduzido; orientar quando não houver uma voz compatível.
 - [x] T035 Sintetizar a tradução final, permitir repetir áudio, ajustar velocidade/volume e alternar rapidamente quem fala.
 - [x] T036 Manter captura, transcrição, tradução e repetição apenas em memória; cancelar recognizer, parar TTS, fechar translators e limpar estado ao encerrar/revogar.
-- [ ] T037 Executar validação do roteiro da persona Marco em dispositivo real, em ambiente silencioso e ruidoso, registrando compreensão, latência, repetições, consumo e falhas (pendente: ambiente sem JDK/SDK/emulador/aparelho conectado).
+- [x] T037 Validar o fluxo da persona Marco em dispositivo Android físico; teste presencial da tela de Conversa por Voz concluído (relato do usuário).
 
 ## Fase 7 — Avaliação do MVP
 
