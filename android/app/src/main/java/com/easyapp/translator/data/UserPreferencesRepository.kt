@@ -18,6 +18,7 @@ data class UserPreferences(
     val qualityMode: QualityMode = QualityMode.BALANCED,
     val preferredMode: AppMode = AppMode.SCREEN,
     val sourceLanguage: String = "en",
+    val targetLanguage: String = "pt",
 ) {
     companion object {
         val DEFAULT = UserPreferences()
@@ -39,6 +40,7 @@ class UserPreferencesRepository(context: Context) {
                 ?.let { value -> AppMode.entries.firstOrNull { it.name == value } }
                 ?: AppMode.SCREEN,
             sourceLanguage = stored[SOURCE_LANGUAGE]?.takeIf { it in SUPPORTED_LANGUAGES } ?: "en",
+            targetLanguage = stored[TARGET_LANGUAGE]?.takeIf { it in SUPPORTED_TARGET_LANGUAGES } ?: "pt",
         )
     }
 
@@ -50,9 +52,12 @@ class UserPreferencesRepository(context: Context) {
         dataStore.edit { it[PREFERRED_MODE] = mode.name }
     }
 
-    suspend fun setSourceLanguage(language: String) {
-        if (language in SUPPORTED_LANGUAGES) {
-            dataStore.edit { it[SOURCE_LANGUAGE] = language }
+    suspend fun setLanguages(source: String, target: String) {
+        if (source in SUPPORTED_LANGUAGES && target in SUPPORTED_TARGET_LANGUAGES) {
+            dataStore.edit {
+                it[SOURCE_LANGUAGE] = source
+                it[TARGET_LANGUAGE] = target
+            }
         }
     }
 
@@ -60,6 +65,8 @@ class UserPreferencesRepository(context: Context) {
         val QUALITY_MODE = stringPreferencesKey("quality_mode")
         val PREFERRED_MODE = stringPreferencesKey("preferred_mode")
         val SOURCE_LANGUAGE = stringPreferencesKey("source_language")
-        val SUPPORTED_LANGUAGES = setOf("en", "es")
+        val TARGET_LANGUAGE = stringPreferencesKey("target_language")
+        val SUPPORTED_LANGUAGES = setOf("en", "es", "it", "fr", "pt")
+        val SUPPORTED_TARGET_LANGUAGES = setOf("pt", "en", "es", "it", "fr")
     }
 }

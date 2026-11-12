@@ -271,10 +271,21 @@ class SessionService : Service() {
         overlay = overlayController
         serviceScope.launch {
             val preferences = UserPreferencesRepository(applicationContext)
+            var settings = preferences.preferences.first()
+            SessionStateHolder.updateTranslationModelStatus(
+                "${TranslationLanguages.choice(settings.sourceLanguage).label} → ${TranslationLanguages.choice(settings.targetLanguage).label}: modelo será verificado ao traduzir.",
+            )
             val pipeline = ScreenTranslationPipeline(
                 windowManager = windowManager,
                 projection = activeProjection,
-                qualityMode = "BALANCED",
+                qualityMode = settings.qualityMode.name,
+                initialSourceLanguage = settings.sourceLanguage,
+                initialTargetLanguage = settings.targetLanguage,
+                onModelStatus = { message ->
+                    mainHandler.post {
+                        if (!ending) SessionStateHolder.updateTranslationModelStatus(message)
+                    }
+                },
             ) { results, message ->
                 mainHandler.post {
                     if (!ending && SessionStateHolder.snapshot.value.status != SessionStatus.IDLE) {
@@ -288,11 +299,18 @@ class SessionService : Service() {
             if (SessionStateHolder.snapshot.value.status == SessionStatus.ACTIVE && !ending) {
                 try {
                     pipeline.start()
-                    overlayController.show(emptyList(), "Aponte para texto em inglês ou espanhol")
+                    overlayController.show(emptyList(), "Aponte para texto em ${TranslationLanguages.choice(settings.sourceLanguage).label.lowercase()}")
                     launch {
-                        preferences.preferences.map { it.qualityMode.name }
+                        preferences.preferences
                             .distinctUntilChanged()
-                            .collect { mode -> pipeline.updateQualityMode(mode) }
+                            .collect { updated ->
+                                SessionStateHolder.updateLanguages(updated.sourceLanguage, updated.targetLanguage)
+                                if (updated.qualityMode != settings.qualityMode) pipeline.updateQualityMode(updated.qualityMode.name)
+                                if (updated.sourceLanguage != settings.sourceLanguage || updated.targetLanguage != settings.targetLanguage) {
+                                    pipeline.updateLanguages(updated.sourceLanguage, updated.targetLanguage)
+                                }
+                                settings = updated
+                            }
                     }
                 } catch (_: RuntimeException) {
                     stopSession("Não foi possível iniciar a captura da tela")
@@ -307,8 +325,8 @@ class SessionService : Service() {
         val activeProjection = mediaProjection ?: return
         serviceScope.launch {
             val preferences = UserPreferencesRepository(applicationContext).preferences
-            var settings = preferences.first().let { it.sourceLanguage to it.qualityMode.name }
-            val pipeline = AudioPlaybackCaptionPipeline(applicationContext, activeProjection, settings.first, settings.second) { update ->
+            var settings = preferences.first().let { Triple(it.sourceLanguage, it.targetLanguage, it.qualityMode.name) }
+            val pipeline = AudioPlaybackCaptionPipeline(applicationContext, activeProjection, settings.first, settings.second, settings.third) { update ->
                 if (ending || SessionStateHolder.snapshot.value.status == SessionStatus.IDLE) return@AudioPlaybackCaptionPipeline
                 update.caption?.let { caption ->
                     activeAudioCaption = caption
@@ -321,12 +339,13 @@ class SessionService : Service() {
             }
             audioCaptionPipeline = pipeline
             pipeline.start()
-            preferences.map { it.sourceLanguage to it.qualityMode.name }
+            preferences.map { Triple(it.sourceLanguage, it.targetLanguage, it.qualityMode.name) }
                 .distinctUntilChanged()
                 .collect { next ->
                     if (next != settings && !ending && SessionStateHolder.snapshot.value.status == SessionStatus.ACTIVE) {
                         settings = next
-                        audioCaptionPipeline?.updateConfiguration(settings.first, settings.second)
+                        SessionStateHolder.updateLanguages(settings.first, settings.second)
+                        audioCaptionPipeline?.updateConfiguration(settings.first, settings.second, settings.third)
                     }
                 }
         }
@@ -346,12 +365,17 @@ class SessionService : Service() {
             stopSession("A permissão do microfone foi revogada; a conversa foi encerrada.")
         }
         conversationEngine = engine
-        engine.initialize("en")
+        val preferences = UserPreferencesRepository(applicationContext).preferences
         serviceScope.launch {
-            UserPreferencesRepository(applicationContext).preferences
-                .map { it.sourceLanguage }
+            val initial = preferences.first()
+            engine.initialize(initial.sourceLanguage, initial.targetLanguage)
+            preferences
+                .map { it.sourceLanguage to it.targetLanguage }
                 .distinctUntilChanged()
-                .collect { language -> engine.setSourceLanguage(language) }
+                .collect { (source, target) ->
+                    SessionStateHolder.updateLanguages(source, target)
+                    engine.setLanguages(source, target)
+                }
         }
     }
 

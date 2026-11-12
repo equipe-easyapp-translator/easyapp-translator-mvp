@@ -19,7 +19,6 @@ import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
-import com.google.mlkit.nl.translate.TranslateLanguage
 import java.util.Locale
 
 /** Manages one explicit speech turn at a time. All text and audio remain transient in process memory. */
@@ -38,18 +37,22 @@ class ConversationEngine(
     private var utteranceSequence = 0L
     private var activeUtteranceId: String? = null
 
-    fun initialize(sourceLanguage: String) {
+    fun initialize(sourceLanguage: String, targetLanguage: String = "pt") {
         checkMainThread()
         if (closed || initialized) return
         initialized = true
-        ConversationStateHolder.update { it.copy(sourceLanguage = sourceLanguage) }
+        ConversationStateHolder.update { it.copy(sourceLanguage = sourceLanguage, targetLanguage = targetLanguage) }
         initializeSpeechRecognizer()
         initializeTextToSpeech()
     }
 
-    fun setSourceLanguage(language: String) {
-        if (language !in setOf("en", "es")) return
-        ConversationStateHolder.update { it.copy(sourceLanguage = language) }
+    fun setLanguages(source: String, target: String) {
+        if (TranslationLanguages.mlKitCode(source) == null || TranslationLanguages.mlKitCode(target) == null) return
+        generation++
+        stopListening(clearPartial = true)
+        activeUtteranceId = null
+        textToSpeech?.stop()
+        ConversationStateHolder.update { it.copy(sourceLanguage = source, targetLanguage = target, translatedText = "", finalTranscript = "", repeatText = "", isSpeaking = false) }
         refreshOfflineVoices()
     }
 
@@ -67,7 +70,7 @@ class ConversationEngine(
                 isListening = false,
                 isSpeaking = false,
                 status = if (it.offlineSpeechAvailable) {
-                    "Agora fale ${if (speaker == ConversationSpeaker.USER_PORTUGUESE) "em português" else "em ${languageName(it.sourceLanguage)}"}."
+                    "Agora fale em ${languageName(inputLanguage(it.sourceLanguage, it.targetLanguage, speaker))}."
                 } else speechUnavailableMessage(),
             )
         }
@@ -90,8 +93,10 @@ class ConversationEngine(
         activeUtteranceId = null
         textToSpeech?.stop()
         val speaker = ConversationStateHolder.state.value.speaker
-        val selectedLanguage = ConversationStateHolder.state.value.sourceLanguage
-        val languageTag = inputLanguageTag(speaker, selectedLanguage)
+        val snapshot = ConversationStateHolder.state.value
+        val selectedSource = snapshot.sourceLanguage
+        val selectedTarget = snapshot.targetLanguage
+        val languageTag = inputLanguageTag(inputLanguage(selectedSource, selectedTarget, speaker))
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
@@ -106,10 +111,10 @@ class ConversationEngine(
                 translatedText = "",
                 isListening = true,
                 isSpeaking = false,
-                status = "Ouvindo em ${languageName(it.sourceLanguage, speaker)}…",
+                status = "Ouvindo em ${languageName(inputLanguage(it.sourceLanguage, it.targetLanguage, speaker))}…",
             )
         }
-        currentRecognizer.setRecognitionListener(createRecognitionListener(generation, speaker, selectedLanguage))
+        currentRecognizer.setRecognitionListener(createRecognitionListener(generation, speaker, selectedSource, selectedTarget))
         try {
             currentRecognizer.startListening(intent)
         } catch (_: SecurityException) {
@@ -237,7 +242,8 @@ class ConversationEngine(
     private fun createRecognitionListener(
         turnGeneration: Int,
         speaker: ConversationSpeaker,
-        selectedLanguage: String,
+        selectedSource: String,
+        selectedTarget: String,
     ) = object : RecognitionListener {
         private fun isCurrentTurn() = !closed && turnGeneration == generation
 
@@ -267,7 +273,7 @@ class ConversationEngine(
             if (transcript.isBlank()) {
                 updateStatus("Não detectei fala. Aproxime-se do microfone e tente novamente.")
             } else {
-                translateTurn(transcript, speaker, selectedLanguage, turnGeneration)
+                translateTurn(transcript, speaker, selectedSource, selectedTarget, turnGeneration)
             }
         }
 
@@ -308,19 +314,33 @@ class ConversationEngine(
         }
     }
 
-    private fun translateTurn(transcript: String, speaker: ConversationSpeaker, selectedLanguage: String, turnGeneration: Int) {
-        val (source, target, targetLocale) = if (speaker == ConversationSpeaker.USER_PORTUGUESE) {
-            Triple(TranslateLanguage.PORTUGUESE, languageCode(selectedLanguage), outputLocale(selectedLanguage))
-        } else {
-            Triple(languageCode(selectedLanguage), TranslateLanguage.PORTUGUESE, "pt-BR")
+    private fun translateTurn(
+        transcript: String,
+        speaker: ConversationSpeaker,
+        selectedSource: String,
+        selectedTarget: String,
+        turnGeneration: Int,
+    ) {
+        val inputLanguage = inputLanguage(selectedSource, selectedTarget, speaker)
+        val outputLanguage = if (speaker == ConversationSpeaker.USER_PORTUGUESE) selectedTarget else selectedSource
+        val source = TranslationLanguages.mlKitCode(inputLanguage) ?: return
+        val target = TranslationLanguages.mlKitCode(outputLanguage) ?: return
+        val targetLocale = TranslationLanguages.choice(outputLanguage).tag
+        if (source == target) {
+            ConversationStateHolder.update {
+                it.copy(translatedText = transcript, repeatText = transcript, repeatLanguageTag = targetLocale, status = "Origem e destino são iguais; texto original mantido.")
+            }
+            return
         }
         val translator = translators.getOrPut("$source->$target") {
             Translation.getClient(TranslatorOptions.Builder().setSourceLanguage(source).setTargetLanguage(target).build())
         }
         ConversationStateHolder.update { it.copy(status = "Preparando modelo de tradução local…") }
+        SessionStateHolder.updateTranslationModelStatus("Baixando ou verificando modelo offline: ${languageName(inputLanguage)} → ${languageName(outputLanguage)}…")
         translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
             .addOnFailureListener {
                 if (turnGeneration == generation && !closed) {
+                    SessionStateHolder.updateTranslationModelStatus("Modelo offline indisponível para ${languageName(inputLanguage)} → ${languageName(outputLanguage)}. Conecte-se para baixar.")
                     ConversationStateHolder.update {
                         it.copy(status = "Não foi possível obter o modelo local. Conecte-se para baixá-lo e tente novamente.")
                     }
@@ -328,6 +348,7 @@ class ConversationEngine(
             }
             .addOnSuccessListener modelReady@{
                 if (turnGeneration != generation || closed) return@modelReady
+                SessionStateHolder.updateTranslationModelStatus("Modelo offline pronto: ${languageName(inputLanguage)} → ${languageName(outputLanguage)}.")
                 translator.translate(transcript)
                     .addOnSuccessListener translatedResult@{ translated ->
                         if (turnGeneration != generation || closed) return@translatedResult
@@ -373,7 +394,7 @@ class ConversationEngine(
     private fun refreshOfflineVoices() {
         val engine = textToSpeech ?: return
         val snapshot = ConversationStateHolder.state.value
-        val targetLanguage = if (snapshot.speaker == ConversationSpeaker.USER_PORTUGUESE) snapshot.sourceLanguage else "pt"
+        val targetLanguage = if (snapshot.speaker == ConversationSpeaker.USER_PORTUGUESE) snapshot.targetLanguage else snapshot.sourceLanguage
         val allOffline = engine.voices.orEmpty().filter { !it.isNetworkConnectionRequired }
         val choices = allOffline.filter { it.locale.language == targetLanguage }
             .sortedWith(compareBy<Voice>({ if (targetLanguage == "pt" && it.locale.country == "BR") 0 else 1 }, { it.name }))
@@ -383,7 +404,7 @@ class ConversationEngine(
         if (selected != null) {
             engine.voices?.firstOrNull { it.name == selected }?.let(engine::setVoice)
         } else {
-            val locale = Locale.forLanguageTag(if (targetLanguage == "pt") "pt-BR" else outputLocale(targetLanguage))
+            val locale = Locale.forLanguageTag(TranslationLanguages.choice(targetLanguage).tag)
             engine.setLanguage(locale)
         }
         ConversationStateHolder.update {
@@ -402,7 +423,7 @@ class ConversationEngine(
     }
 
     private fun speechUnavailableMessage(): String =
-        "Reconhecimento de fala offline indisponível. Ative um serviço SpeechRecognizer e instale os pacotes offline de português, inglês e espanhol nas Configurações do Android."
+        "Reconhecimento de fala offline indisponível. Ative um serviço SpeechRecognizer e instale o pacote offline do idioma selecionado nas Configurações do Android."
 
     private fun updateStatus(message: String) {
         ConversationStateHolder.update { it.copy(status = message) }
@@ -412,18 +433,10 @@ class ConversationEngine(
         check(Looper.myLooper() == Looper.getMainLooper()) { "ConversationEngine deve ser chamado na thread principal" }
     }
 
-    private fun inputLanguageTag(speaker: ConversationSpeaker, foreignLanguage: String) = when (speaker) {
-        ConversationSpeaker.USER_PORTUGUESE -> "pt-BR"
-        ConversationSpeaker.INTERLOCUTOR -> if (foreignLanguage == "es") "es-ES" else "en-US"
-    }
+    private fun inputLanguageTag(language: String) = TranslationLanguages.choice(language).tag
 
-    private fun languageCode(language: String) = if (language == "es") TranslateLanguage.SPANISH else TranslateLanguage.ENGLISH
-    private fun outputLocale(language: String) = if (language == "es") "es-ES" else "en-US"
-    private fun languageName(language: String, speaker: ConversationSpeaker? = null): String = when {
-        speaker == ConversationSpeaker.USER_PORTUGUESE -> "português brasileiro"
-        speaker == ConversationSpeaker.INTERLOCUTOR -> if (language == "es") "espanhol" else "inglês"
-        language == "pt" -> "português"
-        language == "es" -> "espanhol"
-        else -> "inglês"
-    }
+    private fun inputLanguage(source: String, target: String, speaker: ConversationSpeaker) =
+        if (speaker == ConversationSpeaker.USER_PORTUGUESE) source else target
+
+    private fun languageName(language: String) = TranslationLanguages.choice(language).label.lowercase(Locale.ROOT)
 }

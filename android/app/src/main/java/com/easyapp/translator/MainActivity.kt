@@ -28,6 +28,7 @@ import com.easyapp.translator.session.SessionService
 import com.easyapp.translator.session.SessionStateHolder
 import com.easyapp.translator.ui.EasyAppScreen
 import com.easyapp.translator.ui.theme.EasyAppTheme
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 data class PermissionUiState(
@@ -86,6 +87,11 @@ class MainActivity : ComponentActivity() {
         refreshPermissionState()
         showPrivacyNotice = !getSharedPreferences(PRIVACY_PREFS, MODE_PRIVATE)
             .getBoolean(PRIVACY_NOTICE_ACCEPTED, false)
+        lifecycleScope.launch {
+            preferencesRepository.preferences.collect { preferences ->
+                SessionStateHolder.updateLanguages(preferences.sourceLanguage, preferences.targetLanguage)
+            }
+        }
         setContent {
             val preferences by preferencesRepository.preferences.collectAsState(
                 initial = com.easyapp.translator.data.UserPreferences.DEFAULT,
@@ -103,7 +109,10 @@ class MainActivity : ComponentActivity() {
                     permissionState = permissionUiState,
                     showPrivacyNotice = showPrivacyNotice,
                     onModeSelected = { mode -> lifecycleScope.launch { preferencesRepository.setPreferredMode(mode) } },
-                    onLanguageSelected = { language -> lifecycleScope.launch { preferencesRepository.setSourceLanguage(language) } },
+                    onLanguagesSelected = { source, target ->
+                        SessionStateHolder.updateLanguages(source, target)
+                        lifecycleScope.launch { preferencesRepository.setLanguages(source, target) }
+                    },
                     onQualitySelected = { quality -> lifecycleScope.launch { preferencesRepository.setQualityMode(quality) } },
                     onStartRequested = ::requestSessionStart,
                     onPauseRequested = { sendSessionAction(SessionService.ACTION_PAUSE) },

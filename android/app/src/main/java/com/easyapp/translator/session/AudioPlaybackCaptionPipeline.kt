@@ -5,7 +5,6 @@ import android.content.Intent
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
-import android.media.MediaRecorder
 import android.media.projection.MediaProjection
 import android.os.Build
 import android.os.Handler
@@ -18,7 +17,6 @@ import com.google.mlkit.common.model.DownloadConditions
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
-import com.google.mlkit.nl.translate.TranslateLanguage
 import java.io.FileOutputStream
 import java.util.Locale
 import java.util.concurrent.Executors
@@ -36,7 +34,8 @@ data class AudioCaptionUpdate(
 class AudioPlaybackCaptionPipeline(
     private val context: Context,
     private val projection: MediaProjection,
-    private var language: String,
+    private var sourceLanguage: String,
+    private var targetLanguage: String,
     private var qualityMode: String,
     private val onUpdate: (AudioCaptionUpdate) -> Unit,
 ) {
@@ -49,6 +48,7 @@ class AudioPlaybackCaptionPipeline(
     private var pipeWrite: ParcelFileDescriptor? = null
     @Volatile private var running = false
     @Volatile private var closed = false
+    @Volatile private var configurationGeneration = 0
     private var turn = 0
     private var lastFinal = ""
     private var lastVoiceAt = 0L
@@ -103,14 +103,18 @@ class AudioPlaybackCaptionPipeline(
 
     fun clearHistory() = AudioCaptionStateHolder.clearHistory()
 
-    fun updateConfiguration(nextLanguage: String, nextQuality: String) {
-        if (language != nextLanguage) {
-            language = nextLanguage
-            translator?.close()
-            translator = null
-            lastFinal = ""
-        }
+    fun updateConfiguration(nextSource: String, nextTarget: String, nextQuality: String) {
+        if (sourceLanguage == nextSource && targetLanguage == nextTarget && qualityMode == nextQuality) return
+        val wasRunning = running
+        configurationGeneration++
+        stopCapture()
+        sourceLanguage = nextSource
+        targetLanguage = nextTarget
         qualityMode = nextQuality
+        translator?.close()
+        translator = null
+        lastFinal = ""
+        if (wasRunning) start()
     }
 
     fun close() {
@@ -159,7 +163,7 @@ class AudioPlaybackCaptionPipeline(
 
     private fun recognitionIntent() = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-        putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (language == "es") "es-ES" else "en-US")
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE, TranslationLanguages.choice(sourceLanguage).tag)
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
         putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, pipeRead)
@@ -217,16 +221,30 @@ class AudioPlaybackCaptionPipeline(
         val normalized = text.lowercase(Locale.ROOT).replace(Regex("\\s+"), " ")
         if (normalized == lastFinal) return
         lastFinal = normalized
-        val src = if (language == "es") TranslateLanguage.SPANISH else TranslateLanguage.ENGLISH
-        val localTranslator = translator ?: Translation.getClient(TranslatorOptions.Builder().setSourceLanguage(src).setTargetLanguage(TranslateLanguage.PORTUGUESE).build()).also { translator = it }
+        val src = TranslationLanguages.mlKitCode(sourceLanguage) ?: return
+        val dest = TranslationLanguages.mlKitCode(targetLanguage) ?: return
+        val currentConfiguration = configurationGeneration
+        val localTranslator = translator ?: Translation.getClient(TranslatorOptions.Builder().setSourceLanguage(src).setTargetLanguage(dest).build()).also { translator = it }
+        SessionStateHolder.updateTranslationModelStatus(
+            "Baixando ou verificando modelo offline: ${TranslationLanguages.choice(sourceLanguage).label} → ${TranslationLanguages.choice(targetLanguage).label}…",
+        )
         localTranslator.downloadModelIfNeeded(DownloadConditions.Builder().build())
-            .addOnSuccessListener { localTranslator.translate(text).addOnSuccessListener { translated ->
-                if (closed || !running) return@addOnSuccessListener
+            .addOnSuccessListener modelReady@{ localTranslator.translate(text).addOnSuccessListener translatedResult@{ translated ->
+                if (closed || !running || currentConfiguration != configurationGeneration) return@translatedResult
+                SessionStateHolder.updateTranslationModelStatus(
+                    "Modelo offline pronto: ${TranslationLanguages.choice(sourceLanguage).label} → ${TranslationLanguages.choice(targetLanguage).label}.",
+                )
                 val nextTurn = ++turn
                 AudioCaptionStateHolder.add(text, translated, nextTurn)
                 main.post { if (running) emit("Legenda de áudio interno · turno $nextTurn", true, vadActive, "", ScreenTranslation(text, translated, "Áudio interno · turno $nextTurn")) }
-            }.addOnFailureListener { main.post { emit("Falha na tradução local da legenda; baixe o modelo quando houver conexão.", running, vadActive) } } }
-            .addOnFailureListener { main.post { emit("Modelo local de tradução ausente; conecte-se para baixá-lo. Nenhum áudio foi enviado ou salvo.", running, vadActive) } }
+            }.addOnFailureListener { if (!closed && running && currentConfiguration == configurationGeneration) main.post { emit("Falha na tradução local da legenda; baixe o modelo quando houver conexão.", running, vadActive) } } }
+            .addOnFailureListener modelFailed@{
+                if (closed || !running || currentConfiguration != configurationGeneration) return@modelFailed
+                SessionStateHolder.updateTranslationModelStatus(
+                    "Modelo offline indisponível para ${TranslationLanguages.choice(sourceLanguage).label} → ${TranslationLanguages.choice(targetLanguage).label}. Conecte-se para baixar.",
+                )
+                main.post { emit("Modelo local de tradução ausente; conecte-se para baixá-lo. Nenhum áudio foi enviado ou salvo.", running, vadActive) }
+            }
     }
 
     private fun stopCapture() {

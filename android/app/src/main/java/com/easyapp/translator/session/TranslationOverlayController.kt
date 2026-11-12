@@ -31,6 +31,15 @@ class TranslationOverlayController(
         setTextColor(Color.WHITE)
         textSize = 12f
         text = "EasyApp · procurando texto"
+        setPadding(dp(4), dp(8), dp(4), dp(8))
+        contentDescription = "Arraste para mover a janela EasyApp"
+    }
+    private val header = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+    }
+    private val collapseButton = actionButton("−") { toggleCollapsed() }.apply {
+        contentDescription = "Recolher ou expandir painel da tradução"
     }
     private val translationBand = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -53,13 +62,17 @@ class TranslationOverlayController(
             WindowManager.LayoutParams.FLAG_SECURE,
         PixelFormat.TRANSLUCENT,
     ).apply {
-        gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-        y = dp(72)
-        width = dp(380)
+        gravity = Gravity.TOP or Gravity.START
+        x = dp(12)
+        y = dp(120)
+        width = dp(380).coerceAtMost((context.resources.displayMetrics.widthPixels - dp(24)).coerceAtLeast(dp(240)))
     }
     private var attached = false
+    private var collapsed = false
     private var fontSize = 16f
     private var backgroundAlpha = 92
+    private var alphaControl: SeekBar? = null
+    private var hasResults = false
 
     init {
         translationScroll.addView(translations)
@@ -71,7 +84,7 @@ class TranslationOverlayController(
         controls.addView(actionButton("A+") { setFontSize(fontSize + 1f) })
         controls.addView(pauseButton)
         controls.addView(actionButton("Fechar") { onStop() })
-        val alphaControl = SeekBar(context).apply {
+        val opacityControl = SeekBar(context).apply {
             max = 100
             progress = backgroundAlpha
             contentDescription = "Transparência da sobreposição"
@@ -84,10 +97,14 @@ class TranslationOverlayController(
                 override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
             })
         }
-        root.addView(status)
+        alphaControl = opacityControl
+        header.addView(status, LinearLayout.LayoutParams(0, dp(40), 1f))
+        header.addView(collapseButton)
+        root.addView(header)
         root.addView(translationBand, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         root.addView(controls)
-        root.addView(alphaControl, LinearLayout.LayoutParams(-1, dp(28)))
+        root.addView(opacityControl, LinearLayout.LayoutParams(-1, dp(28)))
+        installDragHandle()
         updateAlpha()
     }
 
@@ -110,7 +127,8 @@ class TranslationOverlayController(
         }
         status.text = message ?: "EasyApp · tradução ao vivo"
         pauseButton.text = if (message?.contains("pausad", ignoreCase = true) == true) "Retomar" else "Pausar"
-        translationBand.visibility = if (results.isEmpty()) View.GONE else View.VISIBLE
+        hasResults = results.isNotEmpty()
+        translationBand.visibility = if (!collapsed && hasResults) View.VISIBLE else View.GONE
         translations.removeAllViews()
         results.take(8).forEach { item ->
             item.speakerLabel?.let { speaker ->
@@ -145,6 +163,41 @@ class TranslationOverlayController(
         fontSize = size.coerceIn(12f, 28f)
         for (index in 0 until translations.childCount) {
             (translations.getChildAt(index) as? TextView)?.textSize = fontSize
+        }
+    }
+
+    private fun toggleCollapsed() {
+        collapsed = !collapsed
+        collapseButton.text = if (collapsed) "+" else "−"
+        translationBand.visibility = if (!collapsed && hasResults) View.VISIBLE else View.GONE
+        controls.visibility = if (collapsed) View.GONE else View.VISIBLE
+        alphaControl?.visibility = if (collapsed) View.GONE else View.VISIBLE
+        if (attached) runCatching { windowManager.updateViewLayout(root, params) }
+    }
+
+    private fun installDragHandle() {
+        var downX = 0f
+        var downY = 0f
+        var initialX = 0
+        var initialY = 0
+        status.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    downX = event.rawX
+                    downY = event.rawY
+                    initialX = params.x
+                    initialY = params.y
+                    true
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    val metrics = context.resources.displayMetrics
+                    params.x = (initialX + event.rawX - downX).toInt().coerceIn(0, (metrics.widthPixels - root.width).coerceAtLeast(0))
+                    params.y = (initialY + event.rawY - downY).toInt().coerceIn(0, (metrics.heightPixels - root.height).coerceAtLeast(0))
+                    if (attached) runCatching { windowManager.updateViewLayout(root, params) }
+                    true
+                }
+                else -> true
+            }
         }
     }
 

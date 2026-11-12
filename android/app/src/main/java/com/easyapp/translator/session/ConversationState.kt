@@ -11,6 +11,7 @@ data class OfflineVoiceOption(val id: String, val label: String, val languageTag
 data class ConversationSnapshot(
     val speaker: ConversationSpeaker = ConversationSpeaker.USER_PORTUGUESE,
     val sourceLanguage: String = "en",
+    val targetLanguage: String = "pt",
     val partialTranscript: String = "",
     val finalTranscript: String = "",
     val translatedText: String = "",

@@ -15,4 +15,7 @@ data class SessionSnapshot(
     val status: SessionStatus = SessionStatus.IDLE,
     val mode: AppMode? = null,
     val message: String = "Pronto para iniciar",
+    val sourceLanguage: String = "en",
+    val targetLanguage: String = "pt",
+    val translationModelStatus: String = "O modelo offline será verificado ao iniciar uma tradução.",
 )

@@ -13,11 +13,9 @@ import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import com.google.mlkit.common.model.DownloadConditions
-import com.google.mlkit.nl.languageid.LanguageIdentification
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
-import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -32,6 +30,9 @@ class ScreenTranslationPipeline(
     private val windowManager: WindowManager,
     private val projection: MediaProjection,
     private val qualityMode: String,
+    initialSourceLanguage: String = "en",
+    initialTargetLanguage: String = "pt",
+    private val onModelStatus: (String) -> Unit = {},
     private val onResults: (List<ScreenTranslation>, String?) -> Unit,
 ) {
     private val worker = HandlerThread("easyapp-screen-capture").apply { start() }
@@ -39,7 +40,6 @@ class ScreenTranslationPipeline(
     private val mainHandler = Handler(Looper.getMainLooper())
     private val executor = Executor { command -> mainHandler.post(command) }
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-    private val languageIdentifier = LanguageIdentification.getClient()
     private val translators = mutableMapOf<String, Translator>()
     private val translatedCache = linkedMapOf<String, String>()
     private val originalLines = mutableMapOf<String, String>()
@@ -56,6 +56,8 @@ class ScreenTranslationPipeline(
     @Volatile private var closed = false
     @Volatile private var generation = 0
     private var lastSource = ""
+    @Volatile private var sourceLanguage = initialSourceLanguage
+    @Volatile private var targetLanguage = initialTargetLanguage
 
     private var frameIntervalMs = intervalFor(qualityMode)
 
@@ -63,6 +65,27 @@ class ScreenTranslationPipeline(
         handler.post {
             frameIntervalMs = intervalFor(mode)
             lastAcceptedAt = 0L
+        }
+    }
+
+    fun updateLanguages(source: String, target: String) {
+        if (TranslationLanguages.mlKitCode(source) == null || TranslationLanguages.mlKitCode(target) == null) return
+        handler.post {
+            if (closed || (sourceLanguage == source && targetLanguage == target)) return@post
+            sourceLanguage = source
+            targetLanguage = target
+            generation++
+            translatedCache.clear()
+            originalLines.clear()
+            pendingKeys.clear()
+            visibleKeys.clear()
+            translators.values.forEach { runCatching { it.close() } }
+            translators.clear()
+            lastSource = ""
+            lastFrameHash = null
+            lastAcceptedAt = 0L
+            onModelStatus("Preparando modelo offline: ${languageName(source)} → ${languageName(target)}…")
+            publish(message = "Idiomas atualizados. Procurando texto em ${languageName(source)}…")
         }
     }
 
@@ -157,7 +180,6 @@ class ScreenTranslationPipeline(
             translators.values.forEach { runCatching { it.close() } }
             translators.clear()
             recognizer.close()
-            languageIdentifier.close()
             worker.quitSafely()
         }
     }
@@ -245,49 +267,50 @@ class ScreenTranslationPipeline(
     }
 
     private fun identifyAndTranslate(text: String, key: String, frameGeneration: Int) {
-        languageIdentifier.identifyLanguage(text).addOnSuccessListener(executor) languageResult@{ language ->
-            if (closed || paused || frameGeneration != generation || key !in visibleKeys) return@languageResult
-            val sourceLanguage = when (language) {
-                "en" -> TranslateLanguage.ENGLISH
-                "es" -> TranslateLanguage.SPANISH
-                else -> {
-                    pendingKeys.remove(key)
-                    publish(message = "O texto visível não foi identificado como inglês ou espanhol.")
-                    return@languageResult
-                }
-            }
-            val translator = translators.getOrPut(sourceLanguage) {
-                Translation.getClient(
-                    TranslatorOptions.Builder()
-                        .setSourceLanguage(sourceLanguage)
-                        .setTargetLanguage(TranslateLanguage.PORTUGUESE)
-                        .build(),
-                )
-            }
-            translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
-                .addOnFailureListener(executor) {
-                    pendingKeys.remove(key)
-                    publish(message = "Modelo de tradução indisponível; verifique a conexão.")
-                }
-                .addOnSuccessListener(executor) modelReady@{
-                    if (closed || paused || frameGeneration != generation || key !in visibleKeys) return@modelReady
-                    translator.translate(text)
-                        .addOnSuccessListener(executor) translationResult@{ translated ->
-                            if (!closed && !paused && frameGeneration == generation && key in visibleKeys) {
-                                translatedCache[key] = translated
-                                publish()
-                            }
-                            pendingKeys.remove(key)
-                        }
-                        .addOnFailureListener(executor) {
-                            pendingKeys.remove(key)
-                            publish(message = "Não foi possível traduzir este texto.")
-                        }
-                }
-        }.addOnFailureListener(executor) {
+        if (closed || paused || frameGeneration != generation || key !in visibleKeys) return
+        val sourceCode = TranslationLanguages.mlKitCode(sourceLanguage)
+        val targetCode = TranslationLanguages.mlKitCode(targetLanguage)
+        if (sourceCode == null || targetCode == null) {
             pendingKeys.remove(key)
-            publish(message = "Não foi possível identificar o idioma do texto.")
+            onModelStatus("Idioma selecionado não é suportado pelo modelo local.")
+            return
         }
+        if (sourceCode == targetCode) {
+            translatedCache[key] = text
+            pendingKeys.remove(key)
+            onModelStatus("Origem e destino são iguais; mostrando o texto original.")
+            publish()
+            return
+        }
+        val translatorKey = "$sourceCode->$targetCode"
+        val translator = translators.getOrPut(translatorKey) {
+            Translation.getClient(TranslatorOptions.Builder().setSourceLanguage(sourceCode).setTargetLanguage(targetCode).build())
+        }
+        onModelStatus("Baixando ou verificando modelo offline: ${languageName(sourceLanguage)} → ${languageName(targetLanguage)}…")
+        translator.downloadModelIfNeeded(DownloadConditions.Builder().build())
+            .addOnFailureListener(executor) modelFailed@{
+                if (closed || paused || frameGeneration != generation) return@modelFailed
+                pendingKeys.remove(key)
+                onModelStatus("Modelo offline indisponível para ${languageName(sourceLanguage)} → ${languageName(targetLanguage)}. Conecte-se para baixar.")
+                publish(message = "Modelo local indisponível; verifique a conexão.")
+            }
+            .addOnSuccessListener(executor) modelReady@{
+                if (closed || paused || frameGeneration != generation || key !in visibleKeys) return@modelReady
+                onModelStatus("Modelo offline pronto: ${languageName(sourceLanguage)} → ${languageName(targetLanguage)}.")
+                translator.translate(text)
+                    .addOnSuccessListener(executor) translationResult@{ translated ->
+                        if (!closed && !paused && frameGeneration == generation && key in visibleKeys) {
+                            translatedCache[key] = translated
+                            publish()
+                        }
+                        pendingKeys.remove(key)
+                    }
+                    .addOnFailureListener(executor) translationFailed@{
+                        if (closed || paused || frameGeneration != generation) return@translationFailed
+                        pendingKeys.remove(key)
+                        publish(message = "Não foi possível traduzir este texto.")
+                    }
+            }
     }
 
     private fun finishFrame(bitmap: Bitmap) {
@@ -304,7 +327,7 @@ class ScreenTranslationPipeline(
         val results = visibleKeys.mapNotNull { key -> translatedCache[key]?.let { ScreenTranslation(originalLines[key] ?: key, it) } }
         onResults(results, message ?: when {
             results.isNotEmpty() -> null
-            lastSource.isBlank() -> "Aponte para texto em inglês ou espanhol"
+            lastSource.isBlank() -> "Aponte para texto em ${languageName(sourceLanguage)}"
             else -> "Detectando idioma ou preparando modelo local…"
         })
     }
@@ -348,4 +371,6 @@ class ScreenTranslationPipeline(
     }
 
     private fun normalize(value: String): String = value.lowercase(Locale.ROOT).replace(Regex("\\s+"), " ").trim()
+
+    private fun languageName(code: String): String = TranslationLanguages.choice(code).label.lowercase(Locale.ROOT)
 }

@@ -47,6 +47,7 @@ import com.easyapp.translator.session.ConversationSnapshot
 import com.easyapp.translator.session.ConversationSpeaker
 import com.easyapp.translator.session.SessionSnapshot
 import com.easyapp.translator.session.SessionStatus
+import com.easyapp.translator.session.TranslationLanguages
 
 private val Page = Color(0xFFF5F4EF)
 private val Green = Color(0xFF26734E)
@@ -62,7 +63,7 @@ fun EasyAppScreen(
     permissionState: PermissionUiState,
     showPrivacyNotice: Boolean,
     onModeSelected: (AppMode) -> Unit,
-    onLanguageSelected: (String) -> Unit,
+    onLanguagesSelected: (String, String) -> Unit,
     onQualitySelected: (QualityMode) -> Unit,
     onStartRequested: (AppMode) -> Unit,
     onPauseRequested: () -> Unit,
@@ -109,6 +110,7 @@ fun EasyAppScreen(
                 ConversationCard(
                     state = conversation,
                     sourceLanguage = preferences.sourceLanguage,
+                    targetLanguage = preferences.targetLanguage,
                     enabled = session.status == SessionStatus.ACTIVE,
                     onSpeakerSelected = onConversationSpeakerSelected,
                     onListen = onConversationListen,
@@ -122,6 +124,14 @@ fun EasyAppScreen(
             if (session.mode == AppMode.SCREEN) {
                 AudioCaptionsCard(audioCaptions, session.status == SessionStatus.ACTIVE, onClearAudioCaptions)
             }
+            LanguagePairSelector(
+                source = preferences.sourceLanguage,
+                target = preferences.targetLanguage,
+                modelStatus = if (session.status == SessionStatus.IDLE) {
+                    "${languageLabel(preferences.sourceLanguage)} → ${languageLabel(preferences.targetLanguage)} será verificado ao traduzir."
+                } else session.translationModelStatus,
+                onLanguagesSelected = onLanguagesSelected,
+            )
             SectionTitle("Escolha como quer traduzir")
             AppMode.entries.forEach { mode ->
                 ModeCard(
@@ -130,9 +140,6 @@ fun EasyAppScreen(
                     enabled = session.status == SessionStatus.IDLE,
                     onSelect = { onModeSelected(mode) },
                 )
-            }
-            if (preferences.preferredMode == AppMode.CONVERSATION) {
-                LanguageSelector(preferences.sourceLanguage, onLanguageSelected)
             }
             PreferencesCard(preferences.qualityMode, onQualitySelected)
             PrivacyNote()
@@ -256,6 +263,7 @@ private fun AudioCaptionsCard(state: AudioCaptionSnapshot, enabled: Boolean, onC
 private fun ConversationCard(
     state: ConversationSnapshot,
     sourceLanguage: String,
+    targetLanguage: String,
     enabled: Boolean,
     onSpeakerSelected: (ConversationSpeaker) -> Unit,
     onListen: () -> Unit,
@@ -272,19 +280,19 @@ private fun ConversationCard(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             SectionTitle("Conversa por turnos")
-            Text("Quem está falando agora?", style = MaterialTheme.typography.bodySmall, color = Muted)
+            Text("Qual idioma está sendo falado neste turno?", style = MaterialTheme.typography.bodySmall, color = Muted)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = state.speaker == ConversationSpeaker.USER_PORTUGUESE,
                     onClick = { onSpeakerSelected(ConversationSpeaker.USER_PORTUGUESE) },
                     enabled = enabled && !state.isListening,
-                    label = { Text("Eu · português") },
+                    label = { Text("Origem · ${languageLabel(sourceLanguage)}") },
                 )
                 FilterChip(
                     selected = state.speaker == ConversationSpeaker.INTERLOCUTOR,
                     onClick = { onSpeakerSelected(ConversationSpeaker.INTERLOCUTOR) },
                     enabled = enabled && !state.isListening,
-                    label = { Text("Interlocutor · ${if (sourceLanguage == "es") "espanhol" else "inglês"}") },
+                    label = { Text("Destino · ${languageLabel(targetLanguage)}") },
                 )
             }
             Text(state.status, style = MaterialTheme.typography.bodySmall, color = if (state.offlineSpeechAvailable) Green else Muted)
@@ -293,17 +301,15 @@ private fun ConversationCard(
                 Text("${if (state.partialTranscript.isNotBlank()) "$speakerLabel · ao vivo" else "$speakerLabel disse"}: ${state.partialTranscript.ifBlank { state.finalTranscript }}", style = MaterialTheme.typography.bodyMedium, color = Ink)
             }
             if (state.translatedText.isNotBlank()) {
-                val outputLanguage = if (state.speaker == ConversationSpeaker.USER_PORTUGUESE) {
-                    if (sourceLanguage == "es") "espanhol" else "inglês"
-                } else "português"
-                Text("Tradução · $outputLanguage", style = MaterialTheme.typography.labelMedium, color = Green, fontWeight = FontWeight.Bold)
+                val outputLanguage = if (state.speaker == ConversationSpeaker.USER_PORTUGUESE) targetLanguage else sourceLanguage
+                Text("Tradução · ${languageLabel(outputLanguage)}", style = MaterialTheme.typography.labelMedium, color = Green, fontWeight = FontWeight.Bold)
                 Text(state.translatedText, style = MaterialTheme.typography.titleMedium, color = Ink)
             }
             if (state.isListening) {
                 OutlinedButton(onClick = onCancel, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text("Parar escuta") }
             } else {
                 Button(onClick = onListen, enabled = enabled && state.offlineSpeechAvailable, modifier = Modifier.fillMaxWidth()) {
-                    Text("Ouvir turno em ${if (state.speaker == ConversationSpeaker.USER_PORTUGUESE) "português" else if (sourceLanguage == "es") "espanhol" else "inglês"}")
+                    Text("Ouvir turno em ${languageLabel(if (state.speaker == ConversationSpeaker.USER_PORTUGUESE) sourceLanguage else targetLanguage)}")
                 }
             }
             OutlinedButton(
@@ -464,15 +470,77 @@ private fun ModeCard(mode: AppMode, selected: Boolean, enabled: Boolean, onSelec
 }
 
 @Composable
-private fun LanguageSelector(selected: String, onSelected: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionTitle("Idioma da conversa")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = selected == "en", onClick = { onSelected("en") }, label = { Text("🇺🇸 Inglês") })
-            FilterChip(selected = selected == "es", onClick = { onSelected("es") }, label = { Text("🇪🇸 Espanhol") })
+private fun LanguagePairSelector(
+    source: String,
+    target: String,
+    modelStatus: String,
+    onLanguagesSelected: (String, String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf<String?>(null) }
+    val sourceOptions = TranslationLanguages.sourceChoices
+    val targetOptions = TranslationLanguages.targetChoices.filter { it.code != "fr" || source == "fr" || target == "fr" }
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            SectionTitle("Idiomas de tradução")
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                LanguageDropdown(
+                    title = "Origem",
+                    selected = source,
+                    options = sourceOptions,
+                    expanded = expanded == "source",
+                    modifier = Modifier.weight(1f),
+                    onExpand = { expanded = if (expanded == "source") null else "source" },
+                    onDismiss = { expanded = null },
+                    onSelected = { code -> expanded = null; onLanguagesSelected(code, target) },
+                )
+                TextButton(
+                    onClick = { onLanguagesSelected(target, source) },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
+                    modifier = Modifier.size(44.dp),
+                ) { Text("⇄", style = MaterialTheme.typography.titleLarge, color = Green) }
+                LanguageDropdown(
+                    title = "Destino",
+                    selected = target,
+                    options = targetOptions,
+                    expanded = expanded == "target",
+                    modifier = Modifier.weight(1f),
+                    onExpand = { expanded = if (expanded == "target") null else "target" },
+                    onDismiss = { expanded = null },
+                    onSelected = { code -> expanded = null; onLanguagesSelected(source, code) },
+                )
+            }
+            Text("Modelo offline · $modelStatus", style = MaterialTheme.typography.bodySmall, color = if (modelStatus.contains("pronto", true)) Green else Muted)
         }
     }
 }
+
+@Composable
+private fun LanguageDropdown(
+    title: String,
+    selected: String,
+    options: List<com.easyapp.translator.session.LanguageChoice>,
+    expanded: Boolean,
+    modifier: Modifier,
+    onExpand: () -> Unit,
+    onDismiss: () -> Unit,
+    onSelected: (String) -> Unit,
+) {
+    Box(modifier) {
+        OutlinedButton(onClick = onExpand, modifier = Modifier.fillMaxWidth()) {
+            Column {
+                Text(title, style = MaterialTheme.typography.labelSmall, color = Muted)
+                Text(languageLabel(selected), style = MaterialTheme.typography.labelLarge, color = Ink)
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+            options.forEach { option ->
+                DropdownMenuItem(text = { Text(option.label) }, onClick = { onSelected(option.code) })
+            }
+        }
+    }
+}
+
+private fun languageLabel(code: String) = TranslationLanguages.choice(code).label
 
 @Composable
 private fun PreferencesCard(selected: QualityMode, onSelected: (QualityMode) -> Unit) {
