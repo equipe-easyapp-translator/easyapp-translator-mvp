@@ -15,22 +15,33 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import com.easyapp.translator.MainActivity
-import com.easyapp.translator.R
+import com.easyapp.translator.data.UserPreferencesRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 class SessionService : Service() {
     private var mediaProjection: MediaProjection? = null
     private var currentMode: AppMode? = null
     private var ending = false
+    private var screenPipeline: ScreenTranslationPipeline? = null
+    private var overlay: TranslationOverlayController? = null
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
             mediaProjection = null
             if (!ending) {
-                SessionStateHolder.stop("A captura foi encerrada pelo Android ou pelo usuário")
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                stopSession("A captura foi encerrada pelo Android ou pelo usuário")
             }
         }
     }
@@ -41,11 +52,15 @@ class SessionService : Service() {
         when (intent?.action) {
             ACTION_START -> startSession(intent)
             ACTION_PAUSE -> {
+                screenPipeline?.pauseAndClear()
+                overlay?.show(emptyList(), "Sessão pausada")
                 SessionStateHolder.pause()
                 updateNotification()
             }
             ACTION_RESUME -> {
                 SessionStateHolder.resume()
+                screenPipeline?.resume()
+                overlay?.show(emptyList(), "Aguardando texto na tela…")
                 updateNotification()
             }
             ACTION_STOP -> stopSession("Sessão encerrada pelo usuário")
@@ -88,6 +103,7 @@ class SessionService : Service() {
             }
 
             SessionStateHolder.start(mode)
+            if (mode == AppMode.SCREEN) startScreenPipeline()
             updateNotification()
         } catch (exception: SecurityException) {
             stopSession("O Android não autorizou o serviço desta sessão")
@@ -98,6 +114,10 @@ class SessionService : Service() {
 
     private fun stopSession(message: String) {
         ending = true
+        screenPipeline?.closeAndClear()
+        screenPipeline = null
+        overlay?.hide()
+        overlay = null
         SessionStateHolder.stop(message)
         val projection = mediaProjection
         mediaProjection = null
@@ -120,11 +140,16 @@ class SessionService : Service() {
         val modeLabel = currentMode?.title ?: "EasyApp"
         val pauseAction = if (paused) ACTION_RESUME else ACTION_PAUSE
         val pauseLabel = if (paused) "Retomar" else "Pausar"
+        val detail = when {
+            paused -> "$modeLabel · toque para retomar"
+            currentMode == AppMode.SCREEN -> "$modeLabel · OCR e tradução no aparelho"
+            else -> "$modeLabel · fluxo de voz será integrado na próxima fase"
+        }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_translate)
             .setContentTitle("EasyApp · ${if (paused) "Pausada" else "Sessão ativa"}")
-            .setContentText("$modeLabel. Captura e reconhecimento serão conectados nas próximas fases.")
+            .setContentText(detail)
             .setContentIntent(
                 PendingIntent.getActivity(
                     this,
@@ -163,6 +188,11 @@ class SessionService : Service() {
     }
 
     override fun onDestroy() {
+        screenPipeline?.closeAndClear()
+        screenPipeline = null
+        overlay?.hide()
+        overlay = null
+        serviceScope.cancel()
         val projection = mediaProjection
         mediaProjection = null
         if (projection != null) runCatching { projection.stop() }
@@ -170,6 +200,51 @@ class SessionService : Service() {
             SessionStateHolder.stop("Serviço da sessão encerrado")
         }
         super.onDestroy()
+    }
+
+    private fun startScreenPipeline() {
+        val activeProjection = mediaProjection ?: return
+        val windowManager = getSystemService(WindowManager::class.java)
+        val overlayController = TranslationOverlayController(
+            this,
+            windowManager,
+            onPauseOrResume = {
+                val action = if (SessionStateHolder.snapshot.value.status == SessionStatus.PAUSED) ACTION_RESUME else ACTION_PAUSE
+                startService(controlIntent(this, action))
+            },
+            onStop = { startService(controlIntent(this, ACTION_STOP)) },
+        )
+        overlay = overlayController
+        serviceScope.launch {
+            val preferences = UserPreferencesRepository(applicationContext)
+            val pipeline = ScreenTranslationPipeline(
+                windowManager = windowManager,
+                projection = activeProjection,
+                qualityMode = "BALANCED",
+            ) { results, message ->
+                mainHandler.post {
+                    if (!ending && SessionStateHolder.snapshot.value.status != SessionStatus.IDLE) {
+                        overlayController.show(results, message)
+                    }
+                }
+            }
+            screenPipeline = pipeline
+            if (SessionStateHolder.snapshot.value.status == SessionStatus.ACTIVE && !ending) {
+                try {
+                    pipeline.start()
+                    overlayController.show(emptyList(), "Aponte para texto em inglês ou espanhol")
+                    launch {
+                        preferences.preferences.map { it.qualityMode.name }
+                            .distinctUntilChanged()
+                            .collect { mode -> pipeline.updateQualityMode(mode) }
+                    }
+                } catch (_: RuntimeException) {
+                    stopSession("Não foi possível iniciar a captura da tela")
+                }
+            } else {
+                pipeline.closeAndClear()
+            }
+        }
     }
 
     private fun Intent.projectionResultData(): Intent? = if (Build.VERSION.SDK_INT >= 33) {

@@ -48,4 +48,5 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.mlkit.text.recognition)
     implementation(libs.mlkit.translation)
+    implementation(libs.mlkit.language.id)
 }

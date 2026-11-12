@@ -13,7 +13,7 @@ object SessionStateHolder {
         mutableSnapshot.value = SessionSnapshot(
             status = SessionStatus.ACTIVE,
             mode = mode,
-            message = "Sessão preparada; captura e reconhecimento serão conectados nas próximas fases.",
+            message = if (mode == AppMode.SCREEN) "Captura ativa; procurando texto para traduzir." else "Sessão de conversa preparada.",
         )
     }
 
@@ -25,9 +25,10 @@ object SessionStateHolder {
     }
 
     fun resume() {
+        val mode = mutableSnapshot.value.mode
         mutableSnapshot.value = mutableSnapshot.value.copy(
             status = SessionStatus.ACTIVE,
-            message = "Sessão retomada; captura e reconhecimento serão conectados nas próximas fases.",
+            message = if (mode == AppMode.SCREEN) "Captura retomada; procurando texto para traduzir." else "Sessão retomada.",
         )
     }
 

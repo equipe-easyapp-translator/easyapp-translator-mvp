@@ -93,7 +93,7 @@ fun EasyAppScreen(
             PreferencesCard(preferences.qualityMode, onQualitySelected)
             PrivacyNote()
             Text(
-                "Esta fundação implementa interface, permissões e estado da sessão. Captura de tela, OCR, transcrição e tradução serão ligados nas próximas fases.",
+                "No modo Tela, a captura consentida, o OCR e a tradução local já funcionam. O modo Conversa ainda aguarda integração de fala.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Muted,
             )

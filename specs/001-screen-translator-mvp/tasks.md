@@ -22,14 +22,14 @@
 
 ## Fase 3 — História P1: tradução de texto na tela
 
-- [ ] T011 Implementar captura de tela consentida e liberação imediata de recursos ao parar.
-- [ ] T012 Implementar análise de mudança e filtro de regiões/texto relevantes.
-- [ ] T013 Integrar OCR local e detecção de inglês/espanhol.
-- [ ] T014 Definir interface de tradução e integrar o provedor aprovado para PT-BR.
-- [ ] T015 Implementar sobreposição de resultados com sincronização de expiração ao conteúdo.
-- [ ] T016 Implementar deduplicação de segmentos e limite de trabalho/requisições repetidas.
-- [ ] T017 Implementar controles essenciais de tamanho e transparência.
-- [ ] T018 Remover buffers, segmentos e resultados efêmeros ao encerrar a sessão.
+- [x] T011 Implementar captura consentida via `MediaProjection`, `VirtualDisplay` e `ImageReader` no serviço em primeiro plano.
+- [x] T012 Implementar amostragem/detecção de mudança de frame e filtrar por região (barras superior/inferior), tamanho, repetição e limite de linhas por quadro.
+- [x] T013 Integrar OCR local ML Kit Latin e identificar inglês/espanhol com ML Kit Language ID.
+- [x] T014 Integrar tradução local ML Kit EN/ES→português (`pt`) com download automático dos modelos; a API não permite escolher especificamente a variante `pt-BR`.
+- [x] T015 Implementar sobreposição flutuante e remover a faixa traduzida quando a origem deixa de ser reconhecida.
+- [x] T016 Deduplicar por texto normalizado e aplicar intervalo entre quadros por modo de qualidade.
+- [x] T017 Implementar controles de fonte, transparência, pausa/retomada e fechamento da sobreposição.
+- [x] T018 Zerar buffers de imagem e descartar caches, segmentos e janela ao pausar, parar ou revogar a projeção.
 
 ## Fase 4 — História P2: legendas traduzidas de áudio
 

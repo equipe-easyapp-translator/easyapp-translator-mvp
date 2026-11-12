@@ -17,10 +17,14 @@ Abra a pasta `android/` no Android Studio e sincronize o projeto Gradle. A confi
 - Tela Compose para escolher Tradução de Tela e Apps ou Conversa Presencial por Voz.
 - Estado de sessão em memória (`IDLE`, `ACTIVE`, `PAUSED`), com iniciar, pausar, retomar e parar.
 - Explicação antes das permissões de notificação, sobreposição, microfone e MediaProjection.
-- Serviço em primeiro plano com notificação contínua e ações para pausar, retomar e parar; encerra ao receber `MediaProjection.Callback.onStop()`.
+- Serviço em primeiro plano com notificação contínua e ações para pausar, retomar e parar; encerra e limpa recursos ao receber `MediaProjection.Callback.onStop()`.
 - DataStore persiste somente modo, idioma escolhido e modo de qualidade. Não há entidade nem código de persistência para captura, áudio, transcrição ou tradução.
-- Dependências de ML Kit estão declaradas. OCR, tradução, reconhecimento de fala e captura efetiva ainda serão ligados nas fases correspondentes.
+- No modo Tela, `MediaProjection` alimenta um `ImageReader` RGBA com processamento serial, descarte de frames repetidos, OCR ML Kit Latin, identificação de inglês/espanhol e tradução local para português.
+- Os modelos de OCR (Play Services) e tradução (ML Kit) são obtidos automaticamente quando necessários. O app não grava capturas, texto original ou tradução em armazenamento persistente.
+- A janela flutuante oferece tamanho de fonte, transparência, pausar/retomar e fechar. A faixa traduzida some quando a origem não aparece mais na imagem reconhecida.
 
 ## Limites atuais
 
-A solicitação de MediaProjection obtém o consentimento e inicia o serviço, mas ainda não cria um `VirtualDisplay` nem lê quadros. O modo de conversa solicita `RECORD_AUDIO`, mas ainda não inicia SpeechRecognizer/AudioRecord nem sintetiza fala. O serviço e a notificação estabelecem o ciclo de vida que será conectado aos pipelines nas próximas fases.
+O modo de conversa solicita `RECORD_AUDIO`, mas ainda não inicia SpeechRecognizer/AudioRecord nem sintetiza fala. O pipeline de tela ainda precisa ser validado em aparelhos API 30+; apps protegidos, janelas que bloqueiam captura e frames pequenos/animados podem limitar OCR ou tradução.
+
+O modelo de tradução ML Kit usa o idioma genérico `pt`; ele não permite selecionar separadamente a variante `pt-BR`. O destino é português local, mas a localização brasileira da redação não é garantida por este modelo.
