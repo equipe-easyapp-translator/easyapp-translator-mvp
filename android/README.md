@@ -36,6 +36,10 @@ Abra a pasta `android/` no Android Studio e sincronize o projeto Gradle. A confi
 3. Para gerar um APK, escolha **Build > Build Bundle(s) / APK(s) > Build APK(s)**. O APK de depuração fica em `app/build/outputs/apk/debug/app-debug.apk`.
 4. Ative depuração USB no aparelho Android 11/API 30 ou superior e instale o APK pelo aviso do Android Studio ou com `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
 
+## Baixar o APK compilado no GitHub Actions
+
+Cada `push` para `main` inicia o workflow **Android debug APK**; também é possível iniciá-lo manualmente pela aba **Actions** do repositório, escolhendo **Android debug APK > Run workflow**. Abra a execução concluída, localize **Artifacts** no fim da página e baixe `easyapp-debug-apk`. Descompacte o arquivo baixado para obter `app-debug.apk`. O artefato fica disponível por 14 dias.
+
 ## Roteiro manual de validação e demo
 
 Esses passos são validações a executar em aparelho; esta lista não afirma que já foram executados. Registre modelo do aparelho, versão Android, idioma/pacote on-device, tempos percebidos e mensagens exibidas.
@@ -48,7 +52,7 @@ Esses passos são validações a executar em aparelho; esta lista não afirma qu
 6. Use **Limpar agora** durante a sessão e confirme que as legendas desaparecem do buffer. Pare a sessão, inicie outra e confirme buffer vazio; confira também que nenhum conteúdo aparece em preferências, arquivos ou logs do app.
 7. **Demo persona Marco (T037):** simule a atividade de viagem/atendimento do storyboard: Marco aponta o telefone para instruções em inglês/espanhol e depois ouve um interlocutor estrangeiro. Repita em ambiente silencioso e ruidoso, conte pedidos de repetição, observe compreensão e latência ponta a ponta, anote consumo/falhas e compare os modos Econômico, Equilibrado e Qualidade. A disponibilidade do aparelho e os resultados reais devem ser registrados após executar o roteiro.
 
-Para a compilação via terminal, com Gradle/SDK configurados, use `gradle -p android :app:assembleDebug`; testes locais existentes podem ser chamados com `gradle -p android :app:testDebugUnitTest`.
+Para a compilação via terminal, com JDK 17 e SDK configurados, use `cd android && ./gradlew assembleDebug` (Windows: `cd android; .\gradlew.bat assembleDebug`). Testes locais existentes podem ser chamados com `./gradlew testDebugUnitTest` dentro de `android/`.
 
 ## Limites atuais
 
