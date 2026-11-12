@@ -14,11 +14,11 @@
 
 ## Fase 2 — Fundação Android
 
-- [ ] T006 Criar projeto nativo Android em `android/` com Kotlin e versão mínima acordada.
-- [ ] T007 Implementar fluxo de entrada, estado da sessão e controles explícitos iniciar/pausar/parar.
-- [ ] T008 Implementar explicações e solicitações de permissões no momento de uso.
-- [ ] T009 Implementar indicação persistente de sessão de captura e tratamento de revogação/encerramento.
-- [ ] T010 Implementar armazenamento de preferências e modo de qualidade sem persistir conteúdo traduzido.
+- [x] T006 Criar projeto nativo Android em `android/` com Kotlin, Jetpack Compose, Gradle, `minSdk 30` e dependências iniciais de ML Kit OCR/Translation.
+- [x] T007 Implementar tela inicial com os dois modos unificados, estado da sessão em memória (`IDLE`, `ACTIVE`, `PAUSED`) e controles explícitos iniciar/pausar/retomar/parar.
+- [x] T008 Implementar explicações no momento de uso e fluxos para `SYSTEM_ALERT_WINDOW`, `RECORD_AUDIO`, notificação e consentimento `MediaProjection`.
+- [x] T009 Implementar serviço em primeiro plano com notificação persistente e ações de pausa/retomada/parada, encerrando ao parar a captura ou o serviço.
+- [x] T010 Implementar persistência DataStore apenas para modo preferido, idioma e qualidade (`Econômico`, `Equilibrado`, `Qualidade`), sem salvar conteúdo traduzido.
 
 ## Fase 3 — História P1: tradução de texto na tela
 
