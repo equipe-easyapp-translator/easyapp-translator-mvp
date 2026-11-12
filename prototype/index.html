@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f4ef" />
+    <title>ScreenTranslator — protótipo</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#inicio" aria-label="ScreenTranslator início">
+          <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span>screen<span class="brand-light">translator</span></span>
+        </a>
+        <button class="icon-button" id="open-settings" aria-label="Abrir preferências" title="Preferências">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.7a3.3 3.3 0 1 0 0 6.6 3.3 3.3 0 0 0 0-6.6Z"/><path d="m19.4 13.5 1.1.9-1.1 1.9-1.4-.5a7.8 7.8 0 0 1-1.4.8l-.2 1.5h-2.2l-.4-1.4a7.8 7.8 0 0 1-1.6 0l-.8 1.2-1.9-1.1.5-1.4a7.8 7.8 0 0 1-.8-1.4l-1.5-.2v-2.2l1.4-.4a7.8 7.8 0 0 1 0-1.6L7.9 8.8 9 6.9l1.4.5a7.8 7.8 0 0 1 1.4-.8l.2-1.5h2.2l.4 1.4a7.8 7.8 0 0 1 1.6 0l.8-1.2 1.9 1.1-.5 1.4a7.8 7.8 0 0 1 .8 1.4l1.5.2v2.2l-1.3.4a7.8 7.8 0 0 1 0 1.5Z"/></svg>
+        </button>
+      </header>
+
+      <main id="inicio">
+        <section class="intro">
+          <div class="eyebrow"><span class="eyebrow-dot"></span> SEU COMPANHEIRO DE IDIOMAS</div>
+          <h1>Entenda o que<br class="desktop-break" /> está na tela.</h1>
+          <p>Acompanhe vídeos, páginas e conversas com traduções claras em português.</p>
+        </section>
+
+        <section class="workspace" aria-label="Demonstração do tradutor">
+          <div class="control-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="section-kicker">NOVA SESSÃO</span>
+                <h2>Vamos traduzir</h2>
+              </div>
+              <span class="status-pill" id="session-status"><i></i><span>Pronto</span></span>
+            </div>
+
+            <div class="language-row">
+              <label class="field">
+                <span>DE</span>
+                <select id="source-language" aria-label="Idioma de origem">
+                  <option value="en">🇺🇸 Inglês</option>
+                  <option value="es">🇪🇸 Espanhol</option>
+                </select>
+              </label>
+              <div class="language-arrow" aria-hidden="true">→</div>
+              <label class="field target-field">
+                <span>PARA</span>
+                <select aria-label="Idioma de destino" disabled><option>🇧🇷 Português</option></select>
+              </label>
+            </div>
+
+            <div class="mode-label"><span>Modo de tradução</span><button class="help-button" id="mode-help" aria-label="Sobre os modos">?</button></div>
+            <div class="mode-switch" role="group" aria-label="Modo de tradução">
+              <button class="mode-option" data-mode="economy"><span class="mode-icon">◌</span> Econômico</button>
+              <button class="mode-option selected" data-mode="balanced"><span class="mode-icon">◉</span> Equilibrado</button>
+              <button class="mode-option" data-mode="quality"><span class="mode-icon">✳</span> Qualidade</button>
+            </div>
+
+            <div class="capture-note">
+              <span class="note-icon">⌑</span>
+              <p><strong>Captura com seu consentimento.</strong><br />O Android pedirá autorização antes de compartilhar a tela.</p>
+            </div>
+
+            <button class="primary-button" id="start-session"><span class="play-icon">▶</span> Iniciar tradução</button>
+            <button class="stop-button hidden" id="stop-session">Encerrar sessão</button>
+            <p class="privacy-line"><span>♧</span> Conteúdo temporário apagado ao encerrar</p>
+          </div>
+
+          <div class="preview-panel">
+            <div class="preview-topline">
+              <div><span class="live-indicator" id="live-dot"></span><span id="preview-label">PRÉVIA DO CONTEÚDO</span></div>
+              <span class="demo-tag">DEMONSTRAÇÃO</span>
+            </div>
+            <div class="sample-screen" id="sample-screen">
+              <div class="screen-nav"><span class="screen-logo">fieldnotes.</span><span class="screen-menu">EXPLORE&nbsp;&nbsp; ABOUT</span></div>
+              <div class="screen-content">
+                <span class="screen-category">A SLOWER KIND OF TRAVEL</span>
+                <h3 id="sample-title">Find your way<br />back to wonder.</h3>
+                <p class="sample-copy" id="sample-copy">Somewhere between the first light of morning and the last train home, the world feels a little bigger.</p>
+                <span class="screen-cta">READ THE STORY <b>↗</b></span>
+              </div>
+              <div class="translation-overlay hidden" id="translation-overlay">
+                <span class="overlay-label"><span></span> TRADUÇÃO</span>
+                <div id="translated-title">Encontre o caminho<br />de volta ao encanto.</div>
+                <p id="translated-copy">Entre a primeira luz da manhã e o último trem para casa, o mundo parece um pouco maior.</p>
+              </div>
+              <div class="screen-foot"><span>PORTLAND, OREGON</span><span>01 / 04</span></div>
+            </div>
+            <div class="preview-footer">
+              <div><span class="scan-icon">⌕</span><span id="activity-label">Aguardando início da sessão</span></div>
+              <button class="next-sample" id="next-sample" aria-label="Alternar exemplo de tradução" title="Próximo exemplo">↻</button>
+            </div>
+            <div class="audio-notice"><span>♫</span><div><strong>Tradução de áudio</strong><small>Legendas disponíveis em fontes compatíveis com o Android.</small></div><span class="audio-later">EM EVOLUÇÃO</span></div>
+          </div>
+        </section>
+
+        <section class="feature-strip" aria-label="Como funciona">
+          <article><span class="feature-number">01</span><div><h3>Você escolhe</h3><p>A tradução só começa quando você autorizar.</p></div></article>
+          <article><span class="feature-number">02</span><div><h3>A tela ganha sentido</h3><p>O texto traduzido acompanha o conteúdo.</p></div></article>
+          <article><span class="feature-number">03</span><div><h3>Sua sessão é privada</h3><p>O conteúdo temporário some ao encerrar.</p></div></article>
+        </section>
+      </main>
+
+      <footer class="footer"><span>SCREENTRANSLATOR <span class="footer-sep">/</span> PROTÓTIPO INTERATIVO</span><span>Feito para entender mais.</span></footer>
+    </div>
+
+    <dialog id="permission-dialog" class="dialog-card">
+      <form method="dialog">
+        <div class="dialog-mark">⌑</div>
+        <span class="section-kicker">ANTES DE COMEÇAR</span>
+        <h2>Compartilhe sua tela</h2>
+        <p>Para reconhecer e traduzir o texto, o Android precisa da sua autorização para capturar a tela. Você pode encerrar a qualquer momento.</p>
+        <div class="dialog-actions"><button class="quiet-button" value="cancel">Agora não</button><button class="primary-button dialog-primary" id="confirm-permission" value="default">Entendi, iniciar</button></div>
+        <small>Nesta prévia, a autorização é simulada. Nenhuma captura real é feita.</small>
+      </form>
+    </dialog>
+
+    <dialog id="settings-dialog" class="dialog-card compact-dialog">
+      <form method="dialog">
+        <button class="dialog-close" value="cancel" aria-label="Fechar">×</button>
+        <span class="section-kicker">PREFERÊNCIAS</span>
+        <h2>Do seu jeito</h2>
+        <label class="setting-row"><span>Tamanho da tradução<small>Ajuste para facilitar a leitura</small></span><input id="text-size" type="range" min="14" max="22" value="16" /></label>
+        <label class="setting-row"><span>Transparência da faixa<small>Deixe o conteúdo aparecer ao fundo</small></span><input id="opacity" type="range" min="70" max="100" value="94" /></label>
+        <button class="primary-button dialog-primary" value="cancel">Concluir</button>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
