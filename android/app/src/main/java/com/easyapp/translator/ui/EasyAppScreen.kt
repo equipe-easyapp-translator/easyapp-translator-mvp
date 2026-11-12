@@ -1,5 +1,6 @@
 package com.easyapp.translator.ui
 
+import com.easyapp.translator.PermissionUiState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,6 +59,8 @@ fun EasyAppScreen(
     session: SessionSnapshot,
     conversation: ConversationSnapshot,
     audioCaptions: AudioCaptionSnapshot,
+    permissionState: PermissionUiState,
+    showPrivacyNotice: Boolean,
     onModeSelected: (AppMode) -> Unit,
     onLanguageSelected: (String) -> Unit,
     onQualitySelected: (QualityMode) -> Unit,
@@ -66,6 +69,9 @@ fun EasyAppScreen(
     onResumeRequested: () -> Unit,
     onStopRequested: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
+    onRequestRuntimePermissions: () -> Unit,
+    onPrivacyNoticeAccepted: () -> Unit,
+    onPrivacyNoticeDeclined: () -> Unit,
     onConversationSpeakerSelected: (ConversationSpeaker) -> Unit,
     onConversationListen: () -> Unit,
     onConversationCancel: () -> Unit,
@@ -87,6 +93,11 @@ fun EasyAppScreen(
         ) {
             Header()
             Intro()
+            PermissionStatusCard(
+                state = permissionState,
+                onRequestRuntime = onRequestRuntimePermissions,
+                onOpenOverlaySettings = onOpenOverlaySettings,
+            )
             SessionCard(
                 session = session,
                 onStart = { showPermissionExplanation = true },
@@ -133,6 +144,22 @@ fun EasyAppScreen(
         }
     }
 
+    if (showPrivacyNotice) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Permissões e privacidade") },
+            text = {
+                Text("Antes de solicitar permissões: RECORD_AUDIO habilita conversa por voz e tentativa opcional de captura de áudio interno; no modo Tela o Android pode encaminhar o microfone se o reconhecedor não aceitar áudio PCM externo. POST_NOTIFICATIONS mantém visível o serviço ativo. Sobreposição e compartilhamento de tela serão solicitados separadamente ao usar o modo Tela. O conteúdo processado não é salvo após a sessão.")
+            },
+            confirmButton = {
+                TextButton(onClick = onPrivacyNoticeAccepted) { Text("Concordo e continuar") }
+            },
+            dismissButton = {
+                TextButton(onClick = onPrivacyNoticeDeclined) { Text("Sair") }
+            },
+        )
+    }
+
     if (showPermissionExplanation) {
         val mode = preferences.preferredMode
         AlertDialog(
@@ -156,6 +183,47 @@ fun EasyAppScreen(
             dismissButton = {
                 TextButton(onClick = { showPermissionExplanation = false }) { Text("Agora não") }
             },
+        )
+    }
+}
+
+@Composable
+private fun PermissionStatusCard(
+    state: PermissionUiState,
+    onRequestRuntime: () -> Unit,
+    onOpenOverlaySettings: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(18.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionTitle("Permissões do aparelho")
+            PermissionStatusLine("Microfone / captura de áudio", state.recordAudioGranted)
+            PermissionStatusLine(
+                "Notificações",
+                state.notificationsGranted,
+                if (state.notificationsRequired) null else "Não necessária nesta versão do Android",
+            )
+            PermissionStatusLine("Sobreposição sobre outros apps", state.overlayGranted)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onRequestRuntime, modifier = Modifier.weight(1f)) {
+                    Text("Solicitar permissões")
+                }
+                Button(onClick = onOpenOverlaySettings, modifier = Modifier.weight(1f), enabled = !state.overlayGranted) {
+                    Text(if (state.overlayGranted) "Sobreposição ativa" else "Ativar sobreposição")
+                }
+            }
+            Text("A permissão de tela será pedida pelo Android ao iniciar esse modo.", style = MaterialTheme.typography.bodySmall, color = Muted)
+        }
+    }
+}
+
+@Composable
+private fun PermissionStatusLine(label: String, granted: Boolean, detail: String? = null) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = Ink)
+        Text(
+            detail ?: if (granted) "Concedida" else "Pendente",
+            style = MaterialTheme.typography.labelMedium,
+            color = if (granted || detail != null) Green else Color(0xFF9A6B28),
         )
     }
 }

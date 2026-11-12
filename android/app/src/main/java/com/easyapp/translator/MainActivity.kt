@@ -14,6 +14,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.startForegroundService
 import androidx.lifecycle.lifecycleScope
@@ -28,37 +30,36 @@ import com.easyapp.translator.ui.EasyAppScreen
 import com.easyapp.translator.ui.theme.EasyAppTheme
 import kotlinx.coroutines.launch
 
+data class PermissionUiState(
+    val recordAudioGranted: Boolean = false,
+    val notificationsGranted: Boolean = true,
+    val notificationsRequired: Boolean = false,
+    val overlayGranted: Boolean = false,
+)
+
 class MainActivity : ComponentActivity() {
     private val preferencesRepository by lazy { UserPreferencesRepository(applicationContext) }
     private var pendingOverlayMode: AppMode? = null
     private var pendingProjectionMode: AppMode? = null
-    private var pendingNotificationMode: AppMode? = null
+    private var pendingRuntimeMode: AppMode? = null
     private var screenAudioCaptureGranted = false
+    private var permissionUiState by mutableStateOf(PermissionUiState())
+    private var showPrivacyNotice by mutableStateOf(false)
 
-    private val notificationPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        val mode = pendingNotificationMode
-        pendingNotificationMode = null
-        if (granted && mode != null) {
-            continueStart(mode)
-        } else if (mode != null) {
-            SessionStateHolder.stop("Ative notificações para acompanhar e parar a sessão em andamento")
-        }
-    }
-
-    private val microphonePermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        val mode = pendingProjectionMode
-        pendingProjectionMode = null
-        if (granted && mode == AppMode.CONVERSATION) {
-            launchSessionService(mode)
-        } else if (mode == AppMode.SCREEN) {
-            screenAudioCaptureGranted = granted
-            requestProjectionConsent(mode)
-        } else if (mode != null) {
-            SessionStateHolder.stop("A permissão de microfone não foi concedida")
+    private val runtimePermissions = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) {
+        refreshPermissionState()
+        val mode = pendingRuntimeMode
+        pendingRuntimeMode = null
+        if (mode != null) {
+            when {
+                permissionUiState.notificationsRequired && !permissionUiState.notificationsGranted ->
+                    SessionStateHolder.stop("Ative notificações para acompanhar e parar a sessão em andamento")
+                mode == AppMode.CONVERSATION && !permissionUiState.recordAudioGranted ->
+                    SessionStateHolder.stop("A permissão de microfone não foi concedida")
+                else -> continueStartAfterRuntimePermissions(mode)
+            }
         }
     }
 
@@ -82,6 +83,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        refreshPermissionState()
+        showPrivacyNotice = !getSharedPreferences(PRIVACY_PREFS, MODE_PRIVATE)
+            .getBoolean(PRIVACY_NOTICE_ACCEPTED, false)
         setContent {
             val preferences by preferencesRepository.preferences.collectAsState(
                 initial = com.easyapp.translator.data.UserPreferences.DEFAULT,
@@ -96,6 +100,8 @@ class MainActivity : ComponentActivity() {
                     session = session,
                     conversation = conversation,
                     audioCaptions = audioCaptions,
+                    permissionState = permissionUiState,
+                    showPrivacyNotice = showPrivacyNotice,
                     onModeSelected = { mode -> lifecycleScope.launch { preferencesRepository.setPreferredMode(mode) } },
                     onLanguageSelected = { language -> lifecycleScope.launch { preferencesRepository.setSourceLanguage(language) } },
                     onQualitySelected = { quality -> lifecycleScope.launch { preferencesRepository.setQualityMode(quality) } },
@@ -104,6 +110,14 @@ class MainActivity : ComponentActivity() {
                     onResumeRequested = { sendSessionAction(SessionService.ACTION_RESUME) },
                     onStopRequested = { sendSessionAction(SessionService.ACTION_STOP) },
                     onOpenOverlaySettings = ::openOverlaySettings,
+                    onRequestRuntimePermissions = { requestRuntimePermissions() },
+                    onPrivacyNoticeAccepted = {
+                        getSharedPreferences(PRIVACY_PREFS, MODE_PRIVATE).edit()
+                            .putBoolean(PRIVACY_NOTICE_ACCEPTED, true).apply()
+                        showPrivacyNotice = false
+                        requestRuntimePermissions()
+                    },
+                    onPrivacyNoticeDeclined = { finish() },
                     onConversationSpeakerSelected = { speaker ->
                         sendConversationValue(SessionService.ACTION_CONVERSATION_SPEAKER, SessionService.EXTRA_CONVERSATION_SPEAKER, speaker.name)
                     },
@@ -123,10 +137,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        refreshPermissionState()
         val overlayMode = pendingOverlayMode
         if (overlayMode != null && Settings.canDrawOverlays(this)) {
             pendingOverlayMode = null
-            continueStart(overlayMode)
+            continueStartAfterRuntimePermissions(overlayMode)
         }
 
         val session = SessionStateHolder.snapshot.value
@@ -144,39 +159,61 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestSessionStart(mode: AppMode) {
-        if (Build.VERSION.SDK_INT >= 33 && !hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
-            pendingNotificationMode = mode
-            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-            return
-        }
         continueStart(mode)
     }
 
     private fun continueStart(mode: AppMode) {
+        val missing = missingRuntimePermissions()
+        if (missing.isNotEmpty()) {
+            requestRuntimePermissions(mode)
+        } else {
+            continueStartAfterRuntimePermissions(mode)
+        }
+    }
+
+    private fun continueStartAfterRuntimePermissions(mode: AppMode) {
         when (mode) {
             AppMode.SCREEN -> {
                 if (!Settings.canDrawOverlays(this)) {
                     pendingOverlayMode = mode
                     openOverlaySettings()
                 } else {
-                    if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
-                        pendingProjectionMode = mode
-                        microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
-                    } else {
-                        screenAudioCaptureGranted = true
-                        requestProjectionConsent(mode)
-                    }
+                    screenAudioCaptureGranted = hasPermission(Manifest.permission.RECORD_AUDIO)
+                    requestProjectionConsent(mode)
                 }
             }
             AppMode.CONVERSATION -> {
                 if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
-                    pendingProjectionMode = mode
-                    microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                    SessionStateHolder.stop("Conceda acesso ao microfone para iniciar a conversa por voz")
                 } else {
                     launchSessionService(mode)
                 }
             }
         }
+    }
+
+    private fun requestRuntimePermissions(mode: AppMode? = null) {
+        refreshPermissionState()
+        val missing = missingRuntimePermissions()
+        if (missing.isEmpty()) return
+        pendingRuntimeMode = mode
+        runtimePermissions.launch(missing.toTypedArray())
+    }
+
+    private fun missingRuntimePermissions(): List<String> = buildList {
+        if (!hasPermission(Manifest.permission.RECORD_AUDIO)) add(Manifest.permission.RECORD_AUDIO)
+        if (Build.VERSION.SDK_INT >= 33 && !hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
+            add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    private fun refreshPermissionState() {
+        permissionUiState = PermissionUiState(
+            recordAudioGranted = hasPermission(Manifest.permission.RECORD_AUDIO),
+            notificationsGranted = Build.VERSION.SDK_INT < 33 || hasPermission(Manifest.permission.POST_NOTIFICATIONS),
+            notificationsRequired = Build.VERSION.SDK_INT >= 33,
+            overlayGranted = Settings.canDrawOverlays(this),
+        )
     }
 
     private fun requestProjectionConsent(mode: AppMode) {
@@ -219,4 +256,9 @@ class MainActivity : ComponentActivity() {
 
     private fun hasPermission(permission: String): Boolean =
         ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+    companion object {
+        private const val PRIVACY_PREFS = "first_run_consent"
+        private const val PRIVACY_NOTICE_ACCEPTED = "permission_privacy_notice_accepted"
+    }
 }
