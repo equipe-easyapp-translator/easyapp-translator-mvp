@@ -16,7 +16,6 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.view.WindowManager
-import androidx.core.app.NotificationCompat
 import com.easyapp.translator.MainActivity
 import com.easyapp.translator.data.UserPreferencesRepository
 import kotlinx.coroutines.CoroutineScope
@@ -129,9 +128,13 @@ class SessionService : Service() {
                 }
 
                 val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                mediaProjection = manager.getMediaProjection(resultCode, resultData).also { projection ->
-                    projection.registerCallback(projectionCallback, Handler(Looper.getMainLooper()))
+                val projection = manager.getMediaProjection(resultCode, resultData)
+                if (projection == null) {
+                    stopSession("O Android não forneceu a projeção de tela")
+                    return
                 }
+                projection.registerCallback(projectionCallback, Handler(Looper.getMainLooper()))
+                mediaProjection = projection
             }
 
             SessionStateHolder.start(mode)
@@ -193,24 +196,24 @@ class SessionService : Service() {
             else -> "$modeLabel · fala processada offline por turnos"
         }
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_translate)
-            .setContentTitle("EasyApp · ${if (paused) "Pausada" else "Sessão ativa"}")
-            .setContentText(detail)
-            .setContentIntent(
-                PendingIntent.getActivity(
-                    this,
-                    REQUEST_OPEN_APP,
-                    Intent(this, MainActivity::class.java),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                ),
-            )
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .addAction(0, pauseLabel, servicePendingIntent(pauseAction))
-            .addAction(0, "Parar", servicePendingIntent(ACTION_STOP))
-            .build()
+        val builder = androidx.core.app.NotificationCompat.Builder(this, CHANNEL_ID)
+        builder.setSmallIcon(android.R.drawable.ic_dialog_info)
+        builder.setContentTitle("EasyApp · ${if (paused) "Pausada" else "Sessão ativa"}")
+        builder.setContentText(detail)
+        builder.setContentIntent(
+            PendingIntent.getActivity(
+                this,
+                REQUEST_OPEN_APP,
+                Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            ),
+        )
+        builder.setCategory(androidx.core.app.NotificationCompat.CATEGORY_SERVICE)
+        builder.setOngoing(true)
+        builder.setOnlyAlertOnce(true)
+        builder.addAction(0, pauseLabel, servicePendingIntent(pauseAction))
+        builder.addAction(0, "Parar", servicePendingIntent(ACTION_STOP))
+        return builder.build()
     }
 
     private fun servicePendingIntent(action: String): PendingIntent = PendingIntent.getService(
