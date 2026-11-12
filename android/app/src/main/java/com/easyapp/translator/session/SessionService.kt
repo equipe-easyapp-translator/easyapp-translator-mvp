@@ -140,7 +140,7 @@ class SessionService : Service() {
             SessionStateHolder.start(mode)
             if (mode == AppMode.SCREEN) {
                 screenResults = emptyList()
-                screenMessage = "Aponte para texto em inglês ou espanhol"
+                screenMessage = "Iniciando captura da tela…"
                 if (startIntent.getBooleanExtra(EXTRA_CAPTURE_INTERNAL_AUDIO, false)) startAudioCaptionPipeline()
                 else AudioCaptionStateHolder.clear("Legendas de áudio desativadas; OCR de tela continua ativo.")
                 startScreenPipeline()
@@ -299,7 +299,7 @@ class SessionService : Service() {
             if (SessionStateHolder.snapshot.value.status == SessionStatus.ACTIVE && !ending) {
                 try {
                     pipeline.start()
-                    overlayController.show(emptyList(), "Aponte para texto em ${TranslationLanguages.choice(settings.sourceLanguage).label.lowercase()}")
+                    overlayController.show(emptyList(), "Iniciando captura e preparando modelo offline…")
                     launch {
                         preferences.preferences
                             .distinctUntilChanged()
