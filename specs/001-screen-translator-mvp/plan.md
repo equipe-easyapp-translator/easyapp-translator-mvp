@@ -1,22 +1,23 @@
-# Plano de implementação: MVP ScreenTranslator
+# Plano de implementação: MVP EasyApp / ScreenTranslator
 
 **Branch**: `001-screen-translator-mvp` | **Data**: 2026-11-06 | **Spec**: [spec.md](spec.md)
 
 ## Resumo
 
-Construir um protótipo Android que inicia uma sessão de captura consentida, reconhece mudanças de texto na tela, traduz texto em inglês/espanhol para PT-BR e mostra resultados em uma sobreposição controlável. Depois, acrescentar legendas traduzidas de áudio onde suportado, modos de processamento e tratamento de falhas. Compatibilidade, custo e latência precisam ser medidos antes de prometer comportamento universal.
+Construir um único aplicativo Android EasyApp / ScreenTranslator com dois modos: (1) Tradução de Tela e Apps, usando MediaProjection consentida, OCR local, tradução em sobreposição e legendas para áudio de reprodução quando a origem permitir; (2) Conversa Presencial por Voz, com microfone consentido, transcrição, tradução bidirecional PT-BR↔EN/ES e síntese de fala. O idioma inicial da prova vertical é inglês. Compatibilidade, qualidade, custo, bateria e latência serão medidos antes de qualquer promessa de suporte universal.
 
 ## Contexto técnico
 
 **Linguagem/versão**: Kotlin; versão a confirmar ao criar o projeto  
-**Dependências principais**: Android SDK; biblioteca de OCR local e provedores de tradução, fala-para-texto e texto-para-fala a selecionar após pesquisa  
-**Armazenamento**: Preferências locais; conteúdo da sessão somente em memória; armazenamento local explícito para itens salvos  
+**UI**: Jetpack Compose para o app; janela `TYPE_APPLICATION_OVERLAY` para a sobreposição
+**Dependências principais**: Android SDK; Google ML Kit Text Recognition e Translation no dispositivo; `SpeechRecognizer` local quando disponível; `TextToSpeech` e vozes instaladas; serviços remotos opcionais no modo Qualidade, após aprovação de credenciais e retenção
+**Armazenamento**: Preferências locais; áudio, quadros, transcrição e traduções da sessão somente em memória; itens salvos apenas por ação explícita
 **Testes**: Testes em aparelho Android físico e testes automatizados a definir com o projeto  
-**Plataforma**: Android 11+ como alvo inicial do protótipo  
+**Plataforma**: API mínima 30 (Android 11+); target SDK a definir conforme requisito estável vigente na implementação
 **Tipo de projeto**: Aplicativo móvel nativo  
 **Metas de desempenho**: Alvo de 1–2 segundos para conteúdo curto sob condições favoráveis, ainda não validado  
-**Restrições**: Permissões explícitas; projeção de mídia e serviços em primeiro plano quando aplicáveis; limite de captura definido pelo app de origem; bateria e rede; não contornar DRM  
-**Escopo**: Fluxo de captura → OCR/detecção de mudança → tradução → sobreposição, seguido do pipeline de áudio
+**Restrições**: Consentimento separado para MediaProjection, microfone e sobreposição; serviço em primeiro plano conforme API; áudio de reprodução sujeito às políticas da origem; bateria/rede; sem contornar DRM
+**Escopo**: Dois modos selecionáveis — captura → OCR/detecção de mudança → tradução → sobreposição/legenda; e microfone → transcrição → tradução bidirecional → TTS — seguidos de pesquisa e avaliação incremental
 
 ## Verificação da constituição
 
@@ -28,12 +29,13 @@ Construir um protótipo Android que inicia uma sessão de captura consentida, re
 
 ## Estratégia de entrega
 
-1. Prova técnica no aparelho para permissão/captura de tela e sobreposição.
-2. História P1: OCR local, detecção de mudança, tradução para PT-BR e apresentação na sobreposição.
-3. Controles de sessão, tratamento de falhas e descarte dos dados temporários.
-4. Modos Econômico/Equilibrado/Qualidade e seleção local/nuvem.
-5. Áudio capturável → transcrição → tradução → legendas; voz sintetizada fica condicionada à decisão de escopo e medição de custo/latência.
-6. Avaliação de compatibilidade, privacidade, bateria e custos com fontes e aparelhos documentados.
+1. Prova técnica em aparelho para consentimento de MediaProjection, overlay e diferenças API 30/34+.
+2. Modo Tela e Apps: OCR local, detecção de mudança, tradução EN→PT-BR e overlay; adicionar ES depois da primeira prova vertical.
+3. Modo Conversa Presencial: permissão do microfone, turnos de fala EN↔PT-BR, SpeechRecognizer local quando disponível, tradução e saída TTS; adicionar ES e fallback de Qualidade após validação.
+4. Captura opcional de áudio de outros apps com AudioPlaybackCapture, STT e legendas somente em fontes compatíveis.
+5. Ciclo de vida, controles, seleção de vozes, degradação gradual e descarte de dados temporários nos dois modos.
+6. Modos Econômico/Equilibrado/Qualidade; a rota remota exige consentimento, política de retenção e gestão segura de credenciais.
+7. Avaliação de compatibilidade, privacidade, qualidade, latência, bateria, tráfego e custos nos aparelhos/cenários definidos em `research.md`.
 
 ## Estrutura de projeto proposta
 
@@ -50,13 +52,14 @@ android/
     └── settings/      # idioma, modo e voz
 ```
 
-**Decisão estrutural**: Um único aplicativo Android nativo para o protótipo. Não criar backend próprio até a comparação de provedores demonstrar necessidade; qualquer integração em nuvem deve ser encapsulada por interfaces e usar credenciais fora do cliente.
+**Decisão estrutural**: Um aplicativo Android nativo com modos independentes. Não criar backend até a comparação de provedores demonstrar necessidade; qualquer integração em nuvem deve ser encapsulada por interfaces e não pode expor credenciais permanentes no cliente.
 
 ## Dependências e riscos técnicos
 
-- A projeção de mídia exige consentimento e pode ser revogada; validação em Android 11+.
+- A projeção de mídia exige consentimento por sessão e pode ser revogada; Android 14+ impõe token de uso único e declarações específicas de foreground service.
 - Sobreposição requer permissão especial concedida pelo usuário.
-- Áudio reproduzido por outros apps pode ser bloqueado pelo app de origem ou pelo sistema.
-- Serviços de OCR, tradução, reconhecimento de fala e síntese diferem em suporte linguístico, processamento local, retenção e preço.
+- Áudio reproduzido por outros apps exige MediaProjection e RECORD_AUDIO, mesmo perfil e política de captura permissiva da origem.
+- Reconhecimento Android on-device depende de disponibilidade do serviço do aparelho; SpeechRecognizer padrão pode não ser local.
+- Serviços/modelos de OCR, tradução, reconhecimento de fala e síntese diferem em suporte linguístico, retenção e preço.
 - Avaliar impacto de bateria, latência e rede; estabelecer limites para chamadas repetidas.
 - Revisar documentação atual do Android e políticas de distribuição antes de publicação; este plano não é uma aprovação de loja.

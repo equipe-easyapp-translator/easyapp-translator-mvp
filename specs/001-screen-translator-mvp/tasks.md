@@ -6,11 +6,11 @@
 
 ## Fase 1 — Pesquisa e validação de escopo
 
-- [ ] T001 Confirmar se ScreenTranslator de tela/áudio e tradutor de conversa presencial são o mesmo produto ou propostas diferentes.
-- [ ] T002 Documentar matriz oficial de captura de tela, áudio, sobreposição e serviços em primeiro plano por versão do Android.
-- [ ] T003 Comparar opções de OCR, tradução, fala-para-texto e texto-para-fala para inglês/espanhol → PT-BR.
-- [ ] T004 Estimar custo por 1, 10 e 60 minutos e registrar premissas, retenção e qualidade.
-- [ ] T005 Definir aparelho de referência, conjunto de cenários e critérios de medição de qualidade, latência e bateria.
+- [x] T001 Confirmar o escopo unificado EasyApp / ScreenTranslator em um app Android com os modos Tela e Apps e Conversa Presencial por Voz.
+- [x] T002 Documentar a matriz Android API 30+ para MediaProjection, captura de áudio, SYSTEM_ALERT_WINDOW, RECORD_AUDIO e serviços em primeiro plano.
+- [x] T003 Definir stack inicial Kotlin/Jetpack Compose, ML Kit OCR/Translation, SpeechRecognizer/TTS local quando disponível e modo Qualidade remoto opcional.
+- [x] T004 Estimar custos por 1, 10 e 60 minutos com premissas e tarifas oficiais em USD em `research.md`.
+- [x] T005 Definir aparelho de referência proposto, cenários e critérios de medição; a disponibilidade do aparelho e as medições permanecem pendentes.
 
 ## Fase 2 — Fundação Android
 
@@ -38,7 +38,7 @@
 - [ ] T021 Encaminhar transcrição ao serviço de tradução e exibir legenda PT-BR temporizada.
 - [ ] T022 Fazer legenda desaparecer junto com o segmento de fala correspondente.
 - [ ] T023 Tratar captura bloqueada, áudio ausente, rede indisponível e idioma não suportado com degradação clara.
-- [ ] T024 Implementar alternância de áudio original/tradução/ambos somente quando a síntese de voz estiver aprovada no escopo.
+- [ ] T024 No modo Tela e Apps, apresentar apenas legendas para áudio capturável; a escolha de áudio original/tradução/ambos e síntese após frase completa pertence ao modo Conversa Presencial.
 
 ## Fase 5 — História P3: modos e recuperação
 
@@ -48,9 +48,20 @@
 - [ ] T028 Implementar remoção de itens salvos e confirmar que nenhum conteúdo é salvo automaticamente.
 - [ ] T029 Revisar logs, descarte e tratamento de erros para impedir persistência de conteúdo de tela/áudio.
 
-## Fase 6 — Avaliação do MVP
+## Fase 6 — Modo Conversa Presencial por Voz
 
-- [ ] T030 Medir latência e qualidade nos cenários de referência e atualizar critérios da especificação.
-- [ ] T031 Medir consumo de bateria e dados em sessões curtas e longas.
-- [ ] T032 Registrar compatibilidade observada por aplicativo e dispositivo, incluindo limitações de DRM/captura.
-- [ ] T033 Atualizar política de privacidade, explicações de permissões e limitações antes de qualquer distribuição externa.
+- [ ] T030 Implementar seleção do modo Conversa Presencial e do idioma estrangeiro (inglês ou espanhol), com fluxo bidirecional para PT-BR.
+- [ ] T031 Implementar explicação, solicitação runtime de RECORD_AUDIO e controles explícitos para iniciar, pausar e encerrar os turnos de microfone.
+- [ ] T032 Integrar SpeechRecognizer on-device quando disponível, detectar disponibilidade/idioma e apresentar transcrição incremental; definir fallback de Qualidade para STT remoto.
+- [ ] T033 Integrar tradução de cada turno PT-BR↔EN/ES, usando ML Kit local como padrão e serviço remoto somente no modo Qualidade aprovado.
+- [ ] T034 Integrar Android TextToSpeech, verificar vozes instaladas para PT-BR/EN/ES e permitir seleção; documentar indisponibilidade e fallback de voz.
+- [ ] T035 Implementar reprodução da frase traduzida após o fim do turno reconhecido, opção de repetir/interromper e indicação clara do idioma de saída.
+- [ ] T036 Manter áudio, transcrição e resultados efêmeros; liberar o recognizer e apagar buffers ao parar ou revogar a permissão.
+- [ ] T037 Validar o fluxo com o roteiro da persona Marco em ambiente silencioso e ruidoso, registrando compreensão, latência, repetições, consumo e falhas.
+
+## Fase 7 — Avaliação do MVP
+
+- [ ] T038 Medir latência e qualidade nos cenários de referência e atualizar critérios da especificação.
+- [ ] T039 Medir consumo de bateria e dados em sessões curtas e longas.
+- [ ] T040 Registrar compatibilidade observada por aplicativo e dispositivo, incluindo limitações de DRM/captura.
+- [ ] T041 Atualizar política de privacidade, explicações de permissões e limitações antes de qualquer distribuição externa.

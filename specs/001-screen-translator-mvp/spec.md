@@ -1,15 +1,15 @@
-# Especificação de funcionalidade: MVP ScreenTranslator
+# Especificação de funcionalidade: MVP EasyApp / ScreenTranslator
 
 **Feature Branch**: `001-screen-translator-mvp`  
 **Criado**: 2026-11-06  
 **Status**: Rascunho para validação  
-**Entrada**: Estruturar o MVP Android do aplicativo que reconhece e traduz texto na tela e áudio de outros aplicativos.
+**Entrada**: Estruturar o MVP Android EasyApp / ScreenTranslator, unificando tradução de tela/apps e conversa presencial por voz.
 
 ## Contexto e objetivo
 
-O ScreenTranslator ajuda uma pessoa a acompanhar conteúdo em outro idioma enquanto usa um aplicativo compatível. Na primeira versão, o usuário inicia uma sessão, autoriza a captura necessária, vê traduções de texto em uma sobreposição e pode receber legendas traduzidas do áudio quando a fonte e o Android permitem a captura.
+O EasyApp (nome técnico ScreenTranslator) tem dois modos no mesmo aplicativo Android. Em **Tradução de Tela e Apps**, o usuário inicia uma sessão e autoriza a captura necessária para reconhecer texto visível via OCR e exibir tradução em sobreposição; legendas traduzidas do áudio de outros apps aparecem somente quando o Android e a origem permitem a captura. Em **Conversa Presencial por Voz**, o usuário autoriza o microfone e acompanha turnos de fala transcritos, traduzidos e sintetizados em voz no idioma do interlocutor.
 
-O idioma de destino inicial é PT-BR. Inglês e espanhol são os idiomas de origem prioritários. Compatibilidade universal não é garantida: aplicativos podem bloquear captura de tela ou áudio, especialmente conteúdo protegido por DRM.
+PT-BR é o idioma local de referência. Inglês e espanhol são os idiomas estrangeiros iniciais; a primeira prova vertical deve começar por inglês e adicionar espanhol após validar o fluxo. Na conversa, a tradução é bidirecional PT-BR ↔ idioma selecionado. Compatibilidade universal não é garantida: aplicativos podem bloquear captura de tela ou áudio, especialmente conteúdo protegido por DRM.
 
 ## Cenários de usuário
 
@@ -28,7 +28,23 @@ Como pessoa que não compreende o idioma de um conteúdo na tela, quero ver a tr
 3. **Dado** que o conteúdo permanece igual, **quando** novos quadros forem avaliados, **então** o mesmo texto não é traduzido repetidamente sem necessidade.
 4. **Dado** que o usuário encerra a sessão, **quando** a sessão parar, **então** a sobreposição fecha e o conteúdo temporário da sessão é eliminado.
 
-### História 2 — Traduzir áudio em legendas (P2)
+### História 2 — Conversar presencialmente por voz (P1)
+
+Como turista ou recém-chegado que ainda não domina o português, quero falar em meu idioma e ouvir a tradução em português, e permitir que a resposta em português seja traduzida e falada no meu idioma, para conversar no cotidiano sem depender de outra pessoa.
+
+**Base de produto**: Persona Marco, storyboard e validação da proposta de valor. A necessidade de conversa por voz tem evidência inicial de três entrevistas; tamanho de mercado, diversidade linguística e disposição a pagar permanecem hipóteses.
+
+**Teste independente**: Em uma conversa simulada PT-BR↔EN ou PT-BR↔ES, autorizar o microfone, falar uma frase, observar a transcrição/tradução e ouvir a síntese no idioma oposto.
+
+**Cenários de aceitação**:
+
+1. **Dado** que o usuário escolheu o modo e concedeu `RECORD_AUDIO`, **quando** iniciar um turno de fala, **então** o app transcreve a fala e apresenta a tradução no idioma do interlocutor.
+2. **Dado** que há uma tradução concluída, **quando** a frase do turno terminar, **então** o app pode reproduzir a voz correspondente, permite ouvir original/tradução/ambos e selecionar voz/idioma instalado.
+3. **Dado** que o usuário ouve a resposta em PT-BR, **quando** iniciar o próximo turno, **então** o app traduz a resposta para o idioma estrangeiro selecionado, mantendo o fluxo bidirecional.
+4. **Dado** que reconhecimento local, rede ou voz não estejam disponíveis, **quando** a etapa falhar, **então** o app informa a limitação, oferece somente os recursos disponíveis e permite encerrar a captura.
+5. **Dado** que o usuário encerra a conversa, **quando** a sessão termina, **então** áudio, transcrição e tradução temporários são descartados.
+
+### História 3 — Traduzir áudio de outros apps em legendas (P2)
 
 Como usuário acompanhando conteúdo falado, quero ver legendas em PT-BR quando o áudio puder ser capturado, para entender a fala sem depender de tradução de tela.
 
@@ -40,7 +56,7 @@ Como usuário acompanhando conteúdo falado, quero ver legendas em PT-BR quando 
 2. **Dado** que o áudio não pode ser capturado, **quando** a sessão iniciar ou a captura falhar, **então** o aplicativo informa a limitação e continua com tradução de texto se possível.
 3. **Dado** que a fala ou legenda correspondente termina, **quando** o conteúdo avança, **então** a legenda antiga desaparece em vez de acumular na tela.
 
-### História 3 — Controlar a sessão e a sobreposição (P3)
+### História 4 — Controlar a sessão e a sobreposição (P3)
 
 Como usuário, quero iniciar, pausar e parar a tradução e ajustar controles essenciais da sobreposição, para manter controle sobre permissões, leitura e consumo de recursos.
 
@@ -52,7 +68,7 @@ Como usuário, quero iniciar, pausar e parar a tradução e ajustar controles es
 2. **Dado** que uma sessão está ativa, **quando** o usuário usa o controle persistente de parada, **então** captura, processamento e sobreposição são encerrados.
 3. **Dado** que a sessão está ativa, **quando** o usuário altera tamanho ou transparência, **então** a sobreposição reflete o ajuste sem reiniciar a captura.
 
-### História 4 — Usar modos de qualidade e lidar com falta de rede (P3)
+### História 5 — Usar modos de qualidade e lidar com falta de rede (P3)
 
 Como usuário, quero escolher entre Econômico, Equilibrado e Qualidade e manter recursos locais quando a internet falha, para adequar custo, velocidade e qualidade à situação.
 
@@ -65,9 +81,9 @@ Como usuário, quero escolher entre Econômico, Equilibrado e Qualidade e manter
 
 ## Limites do MVP
 
-Inclui Android, tradução para PT-BR, inglês e espanhol como fontes iniciais, OCR com detecção de mudanças, sobreposição, áudio para legendas quando suportado, modos de processamento, histórico temporário da sessão e opção explícita para salvar uma tradução selecionada.
+Inclui um app Android EasyApp / ScreenTranslator com dois modos: (1) tela/apps, com OCR, detecção de mudanças, tradução em sobreposição e legendas de áudio de reprodução quando capturável; (2) conversa presencial por voz, com microfone, transcrição, tradução bidirecional PT-BR↔EN/ES e síntese de fala. Inclui modos de processamento, histórico efêmero e opção explícita para salvar uma tradução selecionada.
 
-Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqueios de captura, publicação em loja, suporte a iOS, dublagem que substitua a fonte, identificação individual de falantes, tradução totalmente offline, personalização visual completa e retenção automática permanente.
+Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqueios de captura, publicação em loja, suporte a iOS, dublagem que substitua o áudio original de outros apps no modo Tela e Apps, identificação individual de falantes, tradução totalmente offline garantida em todo aparelho, personalização visual completa e retenção automática permanente.
 
 ## Requisitos funcionais
 
@@ -77,15 +93,18 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - **FR-004**: O sistema DEVE exibir o resultado como sobreposição sem substituir o conteúdo original.
 - **FR-005**: O sistema DEVE detectar mudanças relevantes e evitar OCR/tradução redundantes de conteúdo inalterado.
 - **FR-006**: O sistema DEVE remover traduções visuais quando o conteúdo original correspondente desaparecer ou mudar.
-- **FR-007**: O sistema DEVE capturar áudio de reprodução somente quando o Android e o app de origem permitirem; não deve tentar contornar bloqueios.
-- **FR-008**: O sistema DEVE mostrar legendas traduzidas quando fala puder ser capturada e transcrita.
+- **FR-007**: No modo Tela e Apps, o sistema DEVE capturar áudio de reprodução somente quando o Android e o app de origem permitirem; não deve tentar contornar bloqueios.
+- **FR-008**: No modo Tela e Apps, o sistema DEVE mostrar legendas traduzidas quando áudio puder ser capturado e transcrito; indisponibilidade de áudio não deve impedir OCR quando possível.
 - **FR-009**: O sistema DEVE comunicar limitações de compatibilidade, conexão, permissão e serviços sem interromper funções independentes que ainda operem.
 - **FR-010**: O sistema DEVE oferecer modos Econômico, Equilibrado e Qualidade e respeitar a escolha do usuário.
 - **FR-011**: O sistema DEVE manter histórico apenas durante a sessão e apagá-lo quando ela terminar.
 - **FR-012**: O usuário DEVE poder salvar manualmente uma tradução escolhida; nenhuma tradução deve ser salva permanentemente por padrão.
 - **FR-013**: O sistema DEVE permitir controles essenciais de tamanho e transparência da sobreposição.
-- **FR-014**: O sistema DEVE oferecer escolha entre vozes PT-BR para leitura de fala traduzida, se a saída de voz for habilitada no incremento correspondente.
+- **FR-014**: No modo Conversa Presencial por Voz, o sistema DEVE sintetizar a tradução no idioma do interlocutor quando houver voz compatível disponível e permitir selecionar entre vozes instaladas.
 - **FR-015**: O sistema NÃO DEVE incluir conteúdo de tela, áudio ou transcrição em logs de diagnóstico.
+- **FR-016**: O sistema DEVE oferecer dois modos claramente identificados: Tradução de Tela e Apps e Conversa Presencial por Voz.
+- **FR-017**: No modo Conversa Presencial, o sistema DEVE traduzir turnos de fala nos dois sentidos entre PT-BR e o idioma estrangeiro selecionado (inglês ou espanhol).
+- **FR-018**: O sistema DEVE indicar se transcrição é local ou remota e solicitar consentimento/avisar antes de enviar áudio ou texto a um serviço remoto.
 
 ## Requisitos não funcionais
 
@@ -101,6 +120,7 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - Tela protegida, em branco, muito rápida, girada ou com texto pequeno/ambíguo.
 - Conteúdo em idioma não suportado ou mistura de idiomas.
 - Áudio protegido, sem fala, com ruído, sobreposição de falantes ou idioma não reconhecido.
+- Usuário conversa em local ruidoso, alterna idiomas, interrompe a síntese ou revoga o microfone durante um turno.
 - Internet intermitente, serviço remoto indisponível ou cota/custo atingido.
 - Mudança de orientação, troca de aplicativo, bloqueio de tela ou encerramento pelo sistema.
 - Usuário fecha a sessão antes de uma resposta de tradução chegar.
@@ -119,21 +139,21 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - **SC-002**: Em condições de rede favoráveis, o percentil 90 do atraso entre texto novo legível e tradução exibida é de até 2 segundos, a validar em aparelho de referência.
 - **SC-003**: Em teste guiado, pelo menos 4 de 5 participantes iniciam e encerram uma sessão sem ajuda após explicação inicial.
 - **SC-004**: Após encerrar uma sessão, não permanecem segmentos ou resultados temporários no armazenamento da aplicação.
-- **SC-005**: Quando captura de áudio não é suportada, o usuário recebe indicação da limitação e a captura de texto permanece utilizável quando disponível.
+- **SC-005**: Quando captura de áudio de outro app não é suportada, o usuário recebe indicação da limitação e a captura de texto permanece utilizável quando disponível.
+- **SC-006**: Em um roteiro guiado de conversa PT-BR↔EN/ES, registrar taxa de turnos transcritos e traduzidos compreensivelmente, latência de cada etapa e turnos que exigiram repetição; definir limiar de aprovação após estabelecer a amostra de referência.
 
 ## Hipóteses e questões em aberto
 
-- Os documentos de validação com clientes descrevem outro foco de valor: conversa presencial por microfone e voz, para turistas e recém-chegados. Esta especificação segue o documento técnico do ScreenTranslator. Validar se é o mesmo produto ou uma ideia separada antes de investir em implementação completa.
-- A validação de mercado foi feita com apenas três entrevistados italianos; não comprova demanda por tradução de conteúdo de tela nem disposição a pagar.
-- Confirmar combinações de Android/API, permissões, disponibilidade de captura de áudio, restrições de loja, provedores, descarte de dados, custos por minuto e custo por volume de OCR.
-- Definir se fala traduzida em voz alta pertence à primeira demonstração ou a uma fase posterior; a prioridade explícita mais clara é legenda traduzida e controle de fonte original/tradução/ambos.
+- A decisão de escopo desta versão unifica conversa presencial e tradução de tela/apps em um único produto, com modos separados. A validação de mercado foi feita com apenas três entrevistados italianos e apoia principalmente o modo de conversa; não comprova demanda pelo modo de tela/apps nem disposição a pagar.
+- Confirmar em aparelho combinações de Android/API, permissões, disponibilidade de captura de áudio, restrições de loja, provedores, descarte de dados e custos reais por sessão.
+- Validar sequência de turnos, fallback local/remoto e comportamento de saída de voz em ambiente real; a decisão atual inclui síntese de fala no modo de conversa e mantém áudio de outros apps como legenda apenas onde capturável.
 - Definir comportamento e retenção de traduções salvas manualmente.
 
 ## Assunções
 
-- Android 11 ou superior e aparelho físico para o protótipo, conforme as decisões registradas.
-- Nome provisório ScreenTranslator; pode mudar.
-- Idiomas de entrada iniciais: inglês e espanhol; destino: PT-BR.
-- Áudio interno é oportunista; microfone pode ser uma alternativa apenas se definida e autorizada pelo usuário.
+- Android 11 ou superior (API 30+); o aparelho de referência proposto é Pixel 8a com Android 15/API 35, sujeito a disponibilidade e teste.
+- EasyApp é o nome de produto; ScreenTranslator permanece como nome técnico/legado dos artefatos.
+- Idiomas iniciais: inglês e espanhol, com PT-BR como idioma local; a primeira prova vertical começa em inglês.
+- Áudio interno é oportunista; conversa usa microfone somente após escolha explícita e autorização.
 - A arquitetura é híbrida e decide entre local e nuvem considerando qualidade, conectividade, bateria e custo.
-- Estimativas de custo não foram consolidadas e não são critério de preço do produto nesta etapa.
+- A estimativa inicial é uma ordem de grandeza em USD documentada em `research.md`, não preço final nem medição.
