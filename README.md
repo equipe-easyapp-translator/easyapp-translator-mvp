@@ -2,6 +2,13 @@
 
 Aplicativo Android para traduzir texto visível em outros apps e facilitar conversas presenciais por voz. Este repositório reúne o app nativo, as especificações do MVP, o protótipo web inicial e os documentos de negócio usados pela equipe.
 
+## Equipe
+
+- **Brayan:** [brayamartins9@gmail.com](mailto:brayamartins9@gmail.com)
+- **Carlos:** [carlosdanielmds32@gmail.com](mailto:carlosdanielmds32@gmail.com)
+- **Sante:** [santebiondi.fc@gmail.com](mailto:santebiondi.fc@gmail.com)
+- **Tiago Morocini**
+
 ## 1. Visão Geral do Projeto
 
 O app nativo é escrito em **Kotlin** e usa **Jetpack Compose** na interface. O processamento é feito prioritariamente no aparelho:

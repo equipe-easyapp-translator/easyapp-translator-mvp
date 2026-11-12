@@ -1,7 +1,14 @@
 # Roteiro da apresentação — EasyApp Translator (MVP)
 
-**Duração estimada:** 10 minutos · **Equipe:** Brayan, Carlos, Sante e Tiago
+**Duração estimada:** 10 minutos · **Equipe:** Brayan, Carlos, Sante e Tiago Morocini
 **Formato:** quatro blocos de aproximadamente 2 min 30 s cada. Os textos abaixo são falas sugeridas; os trechos entre colchetes indicam ações de demonstração.
+
+## Equipe e contatos
+
+- **Brayan:** [brayamartins9@gmail.com](mailto:brayamartins9@gmail.com)
+- **Carlos:** [carlosdanielmds32@gmail.com](mailto:carlosdanielmds32@gmail.com)
+- **Sante:** [santebiondi.fc@gmail.com](mailto:santebiondi.fc@gmail.com)
+- **Tiago Morocini**
 
 ## Bloco 1 — Problema, proposta e método de desenvolvimento + CI/CD
 
@@ -9,7 +16,7 @@
 
 ### Slide 1 — Abertura (30 s)
 
-“Olá. Nós somos Brayan, Carlos, Sante e Tiago, e vamos apresentar o EasyApp Translator, um MVP Android para reduzir a fricção de entender conteúdo em outro idioma. A proposta reúne tradução do que está na tela e conversa presencial por voz em um único aplicativo. Vamos mostrar o problema, como o app foi organizado e o que aprendemos nos testes em aparelho.”
+“Olá. Nós somos Brayan, Carlos, Sante e Tiago Morocini, e vamos apresentar o EasyApp Translator, um MVP Android para reduzir a fricção de entender conteúdo em outro idioma. A proposta reúne tradução do que está na tela e conversa presencial por voz em um único aplicativo. Vamos mostrar o problema, como o app foi organizado e o que aprendemos nos testes em aparelho.”
 
 ### Slide 2 — Problema e proposta (1 min)
 
@@ -47,11 +54,11 @@
 
 “Agora seleciono Conversa Presencial por Voz e inicio a sessão com `RECORD_AUDIO` autorizado. Para este exemplo, eu falo português e escolho **Você · Português**; o interlocutor estrangeiro seleciona **Interlocutor · Inglês**. [Iniciar um turno e falar uma frase curta.] A interface deve indicar que está ouvindo, exibir a transcrição e a tradução e ler a tradução quando houver uma voz instalada. O outro participante responde e alternamos o turno. Podemos repetir o áudio traduzido e ajustar voz, velocidade e volume. O teste físico anterior encontrou uma falha: tocar em Ouvir não iniciava a captura. A equipe corrigiu a chamada na Main Thread e adicionou fallback e feedback, mas esta correção precisa ser confirmada nesta build durante a demonstração.”
 
-**Transição:** “O Tiago encerra com os problemas que esses testes revelaram e o que ainda precisamos medir.”
+**Transição:** “Tiago Morocini encerra com os problemas que esses testes revelaram e o que ainda precisamos medir.”
 
 ## Bloco 4 — Desafios resolvidos e evoluções futuras
 
-**Apresentador: Tiago · slides 8 e 9 · 2 min 30 s**
+**Apresentador: Tiago Morocini · slides 8 e 9 · 2 min 30 s**
 
 ### Slide 8 — O que os testes ensinaram (1 min 15 s)
 
