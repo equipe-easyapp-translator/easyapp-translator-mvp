@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07120f">
+  <title>EasyApp Translator — apresentação do MVP</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07120f;
+      --panel: #10211b;
+      --panel-2: #152b23;
+      --line: rgba(170, 232, 198, .16);
+      --text: #f1f8f3;
+      --muted: #a8bdb1;
+      --green: #55dfa0;
+      --green-2: #20a86d;
+      --amber: #f5c56b;
+      --red: #ff897c;
+      --shadow: 0 24px 80px rgba(0, 0, 0, .36);
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; min-height: 100%; margin: 0; }
+    body {
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse at 12% 12%, rgba(32, 168, 109, .19), transparent 34rem),
+        radial-gradient(ellipse at 88% 82%, rgba(85, 223, 160, .10), transparent 32rem), var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button { font: inherit; }
+    .app { width: min(100vw, 1600px, calc(177.78svh - 298px)); padding: clamp(12px, 2.5vw, 32px); }
+    .topline { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 2px 12px; color: var(--muted); font-size: .76rem; letter-spacing: .13em; text-transform: uppercase; }
+    .brand { display: flex; align-items: center; gap: .65rem; color: var(--text); font-weight: 750; letter-spacing: .02em; text-transform: none; }
+    .brand-mark { display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid rgba(85, 223, 160, .4); border-radius: 9px; background: rgba(85, 223, 160, .12); color: var(--green); font-size: .78rem; }
+    .stage { position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: linear-gradient(135deg, rgba(16, 33, 27, .98), rgba(8, 22, 17, .98)); box-shadow: var(--shadow); }
+    .stage::before { position: absolute; inset: 0; pointer-events: none; content: ""; opacity: .24; background-image: linear-gradient(rgba(184, 236, 203, .04) 1px, transparent 1px), linear-gradient(90deg, rgba(184, 236, 203, .04) 1px, transparent 1px); background-size: 42px 42px; mask-image: linear-gradient(130deg, black, transparent 70%); }
+    .slide { position: absolute; inset: 0; display: none; flex-direction: column; justify-content: center; gap: clamp(16px, 2vw, 28px); padding: clamp(24px, 5.4vw, 82px); animation: enter .32s ease both; }
+    .slide.active { display: flex; }
+    @keyframes enter { from { opacity: .3; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .slide-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .eyebrow { display: inline-flex; align-items: center; gap: .55rem; color: var(--green); font-size: .77rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+    .eyebrow::before { width: 22px; height: 2px; background: var(--green); content: ""; }
+    .speaker { color: var(--muted); font-size: .82rem; }
+    h1, h2, h3, p { margin: 0; }
+    h1 { max-width: 980px; font-size: clamp(2.5rem, 6.4vw, 6.2rem); line-height: .99; letter-spacing: -.065em; }
+    h2 { max-width: 1100px; font-size: clamp(1.8rem, 4.2vw, 4rem); line-height: 1.04; letter-spacing: -.045em; }
+    h3 { font-size: clamp(1rem, 1.55vw, 1.35rem); letter-spacing: -.02em; }
+    code { padding: .12em .34em; border: 1px solid rgba(85,223,160,.16); border-radius: 5px; background: rgba(85,223,160,.08); color: #b6f3ce; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .9em; }
+    .lead { max-width: 850px; color: #d2e4d8; font-size: clamp(1.03rem, 1.7vw, 1.5rem); line-height: 1.55; }
+    .small { color: var(--muted); font-size: clamp(.78rem, 1vw, .94rem); line-height: 1.5; }
+    .accent { color: var(--green); }
+    .hero { display: grid; grid-template-columns: 1.5fr .8fr; align-items: center; gap: 4vw; }
+    .hero-copy { display: flex; flex-direction: column; align-items: flex-start; gap: clamp(18px, 2.5vw, 32px); }
+    .hero-art { position: relative; display: grid; place-items: center; min-height: 300px; }
+    .phone { position: relative; width: clamp(150px, 18vw, 230px); aspect-ratio: .54; padding: 13px; border: 2px solid rgba(220, 255, 233, .55); border-radius: 34px; background: #0b1712; box-shadow: 0 24px 68px rgba(0,0,0,.5), 0 0 60px rgba(48, 196, 123, .13); transform: rotate(5deg); }
+    .phone::before { position: absolute; z-index: 2; top: 8px; left: 50%; width: 30%; height: 12px; border-radius: 20px; background: #020605; content: ""; transform: translateX(-50%); }
+    .phone-screen { display: flex; height: 100%; flex-direction: column; gap: 10px; overflow: hidden; padding: 26px 10px 10px; border-radius: 23px; background: linear-gradient(160deg, #203c2f, #0b1510); }
+    .screen-line { height: 8px; border-radius: 8px; background: rgba(226, 245, 233, .22); }
+    .screen-line:nth-child(2n) { width: 72%; }
+    .floating-card { margin-top: 18px; padding: 12px; border: 1px solid rgba(85, 223, 160, .45); border-radius: 13px; background: rgba(16, 48, 34, .95); color: #e9fff1; font-size: .72rem; line-height: 1.45; box-shadow: 0 10px 25px rgba(0,0,0,.3); }
+    .floating-card b { display: block; margin-bottom: 5px; color: var(--green); }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill { display: inline-flex; align-items: center; gap: .45rem; padding: .55rem .8rem; border: 1px solid var(--line); border-radius: 99px; background: rgba(255,255,255,.035); color: #dbe9df; font-size: .84rem; }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green); }
+    .grid-2, .grid-3, .grid-4 { display: grid; gap: 14px; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card { position: relative; padding: clamp(15px, 2vw, 25px); border: 1px solid var(--line); border-radius: 17px; background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.018)); }
+    .card p { margin-top: 9px; color: var(--muted); font-size: clamp(.82rem, 1.16vw, 1rem); line-height: 1.48; }
+    .card .icon { display: grid; width: 36px; height: 36px; margin-bottom: 13px; place-items: center; border-radius: 11px; background: rgba(85, 223, 160, .12); color: var(--green); font-weight: 800; }
+    .card.emphasis { border-color: rgba(85, 223, 160, .38); background: linear-gradient(145deg, rgba(35, 130, 82, .2), rgba(255,255,255,.025)); }
+    .split { display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; gap: 16px; }
+    .label { display: block; margin-bottom: 12px; color: var(--green); font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    .number { color: rgba(85, 223, 160, .36); font-size: clamp(2.2rem, 5vw, 4.6rem); font-weight: 850; letter-spacing: -.08em; line-height: 1; }
+    .flow { display: flex; align-items: stretch; justify-content: center; gap: 9px; }
+    .flow-node { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; padding: 14px 12px; border: 1px solid rgba(85,223,160,.24); border-radius: 13px; background: rgba(85,223,160,.07); text-align: center; }
+    .flow-node strong { font-size: clamp(.75rem, 1.15vw, 1rem); }
+    .flow-node span { margin-top: 6px; color: var(--muted); font-size: clamp(.67rem, .9vw, .82rem); line-height: 1.35; }
+    .arrow { align-self: center; color: var(--green); font-size: 1.35rem; }
+    .stack { display: flex; flex-direction: column; gap: 10px; }
+    .stack-row { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: center; padding: 12px 15px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.03); }
+    .stack-row strong { color: var(--green); font-size: .88rem; }
+    .stack-row span { color: #d5e3d9; font-size: .88rem; line-height: 1.4; }
+    .diagram { width: 100%; max-height: 38vh; overflow: visible; }
+    .diagram text { fill: #eaf6ee; font: 600 15px system-ui, sans-serif; }
+    .diagram .sub { fill: #a8bdb1; font-size: 12px; font-weight: 450; }
+    .diagram .node { fill: #132a20; stroke: #3bb67b; stroke-width: 1.5; }
+    .diagram .node-alt { fill: #183629; stroke: #73e8aa; stroke-width: 1.5; }
+    .diagram .path { fill: none; stroke: #55dfa0; stroke-width: 2; marker-end: url(#arrow); }
+    .diagram .path-soft { fill: none; stroke: #90a99a; stroke-width: 1.5; stroke-dasharray: 5 5; marker-end: url(#arrow-soft); }
+    .flow-note { display: flex; align-items: flex-start; gap: 12px; padding: 13px 15px; border-left: 3px solid var(--amber); border-radius: 0 10px 10px 0; background: rgba(245,197,107,.08); color: #f2e6cb; font-size: .88rem; line-height: 1.45; }
+    .checklist { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .check { display: flex; align-items: flex-start; gap: 11px; padding: 14px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.03); }
+    .check b { flex: 0 0 25px; display: grid; width: 25px; height: 25px; place-items: center; border-radius: 8px; background: rgba(85,223,160,.13); color: var(--green); }
+    .check span { color: #d8e6dc; font-size: .87rem; line-height: 1.4; }
+    .status { display: inline-flex; align-items: center; gap: .5rem; color: var(--amber); font-size: .75rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    .status::before { width: 8px; height: 8px; border-radius: 50%; background: currentColor; content: ""; }
+    .person-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    .person { padding: 10px 14px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.04); color: #e7f3eb; font-weight: 650; }
+    .footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+    .progress-track { flex: 1; height: 4px; overflow: hidden; border-radius: 10px; background: rgba(255,255,255,.12); }
+    .progress-fill { width: 11.11%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--green-2), var(--green)); transition: width .28s ease; }
+    .counter { min-width: 54px; color: var(--muted); font-variant-numeric: tabular-nums; font-size: .82rem; text-align: right; }
+    .controls { display: flex; align-items: center; gap: 8px; }
+    .nav-btn { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.05); color: var(--text); cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
+    .nav-btn:hover { border-color: rgba(85,223,160,.5); background: rgba(85,223,160,.13); }
+    .nav-btn:active { transform: scale(.96); }
+    .nav-btn:disabled { opacity: .38; cursor: default; }
+    button:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; }
+    .key-hint { color: var(--muted); font-size: .72rem; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+    @media (max-width: 760px) {
+      body { display: block; overflow: auto; }
+      .app { width: 100%; padding: 10px; }
+      .stage { min-height: 78vh; aspect-ratio: auto; border-radius: 18px; }
+      .slide { position: relative; min-height: 78vh; padding: 25px 20px; }
+      .slide:not(.active) { display: none; }
+      .hero, .split { grid-template-columns: 1fr; }
+      .hero-art { min-height: 180px; }
+      .phone { width: 125px; }
+      .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+      .flow { flex-wrap: wrap; }
+      .flow-node { flex-basis: 40%; }
+      .arrow { display: none; }
+      .stack-row { grid-template-columns: 105px 1fr; }
+      .diagram { max-height: 30vh; }
+      .key-hint { display: none; }
+    }
+    @media (max-width: 440px) {
+      .grid-2, .grid-3, .grid-4, .checklist { grid-template-columns: 1fr; }
+      .slide { gap: 18px; }
+      h2 { font-size: 1.8rem; }
+      .speaker { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topline">
+      <div class="brand"><span class="brand-mark">EA</span> EasyApp Translator <span style="color:var(--muted);font-weight:500">/ MVP</span></div>
+      <span>Apresentação acadêmica · 10 min</span>
+    </div>
+
+    <main class="stage" id="deck" aria-label="Apresentação EasyApp Translator">
+      <section class="slide active" aria-label="Slide 1 de 9: capa" aria-hidden="false">
+        <div class="hero">
+          <div class="hero-copy">
+            <span class="eyebrow">Projeto Android · MVP</span>
+            <h1>Entenda.<br><span class="accent">Converse.</span><br>Sem trocar de app.</h1>
+            <p class="lead">Tradução de tela e conversa presencial por voz, reunidas em uma experiência móvel.</p>
+            <div class="person-row" aria-label="Integrantes da equipe">
+              <span class="person">Brayan</span><span class="person">Carlos</span><span class="person">Sante</span><span class="person">Tiago</span>
+            </div>
+          </div>
+          <div class="hero-art" aria-hidden="true">
+            <div class="phone"><div class="phone-screen">
+              <div class="screen-line"></div><div class="screen-line"></div><div class="screen-line"></div><div class="screen-line"></div>
+              <div class="floating-card"><b>EasyApp · ao vivo</b>Tradução sobre o conteúdo<br>sem sair da tela.</div>
+              <div class="screen-line"></div><div class="screen-line"></div>
+            </div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" aria-label="Slide 2 de 9: problema e proposta" aria-hidden="true">
+        <div class="slide-top"><span class="eyebrow">01 · O problema</span><span class="speaker">Brayan · 1 min</span></div>
+        <h2>A tradução interrompe o <span class="accent">contexto</span>.</h2>
+        <p class="lead">Alternar entre o conteúdo e um tradutor quebra a leitura. Numa conversa, cada troca aumenta o atrito.</p>
+        <div class="split">
+          <article class="card"><span class="label">Hoje</span><h3>Copiar · trocar de app · voltar</h3><p>Um ciclo repetido para cada frase, tela ou instrução que a pessoa não compreende.</p></article>
+          <article class="card emphasis"><span class="label">Proposta EasyApp</span><h3>Tradução perto do momento</h3><p>OCR e sobreposição para texto visível; turnos de fala traduzidos e sintetizados para conversas presenciais.</p></article>
+        </div>
+        <div class="pill-row"><span class="pill"><i class="dot"></i>Um app · dois modos</span><span class="pill">Consentimento explícito</span><span class="pill">Processamento prioritariamente local</span></div>
+      </section>
+
+      <section class="slide" aria-label="Slide 3 de 9: especificação e CI/CD" aria-hidden="true">
+        <div class="slide-top"><span class="eyebrow">02 · Método e entrega</span><span class="speaker">Brayan · 1 min</span></div>
+        <h2>Especificar, dividir, <span class="accent">entregar</span>.</h2>
+        <div class="grid-3">
+          <article class="card"><span class="number">01</span><h3>Proposta</h3><p>Problema, usuários e critérios do MVP registrados na especificação.</p></article>
+          <article class="card"><span class="number">02</span><h3>Desenho técnico</h3><p>Pesquisa e plano descrevem APIs, arquitetura, riscos e decisões.</p></article>
+          <article class="card"><span class="number">03</span><h3>Tarefas</h3><p>Implementação acompanhada por itens pequenos e verificáveis.</p></article>
+        </div>
+        <div class="stack">
+          <div class="stack-row"><strong>Este repositório</strong><span>Usa Spec-Kit: <code>spec.md</code>, <code>plan.md</code>, <code>research.md</code> e <code>tasks.md</code>.</span></div>
+          <div class="stack-row"><strong>OpenSpec</strong><span><code>proposal.md</code> e <code>design.md</code> são nomes conceituais citados no roteiro; esses arquivos não existem neste checkout.</span></div>
+          <div class="stack-row"><strong>GitHub Actions</strong><span>Push na <code>main</code> → JDK 17 → <code>assembleDebug</code> → artefato <code>easyapp-debug-apk</code>.</span></div>
+        </div>
+      </section>
+
+      <section class="slide" aria-label="Slide 4 de 9: dois modos" aria-hidden="true">
+        <div class="slide-top"><span class="eyebrow">03 · Experiência</span><span class="speaker">Carlos · 1 min</span></div>
+        <h2>Uma sessão, dois <span class="accent">caminhos</span>.</h2>
+        <div class="grid-2">
+          <article class="card emphasis"><div class="icon">▤</div><span class="label">Modo 01 · tela</span><h3>Tradução de Tela e Apps</h3><p>O usuário autoriza a captura. O app lê texto visível e apresenta a tradução numa janela flutuante.</p></article>
+          <article class="card"><div class="icon">♫</div><span class="label">Modo 02 · voz</span><h3>Conversa Presencial por Voz</h3><p>Uma pessoa fala por vez. A fala é transcrita, traduzida e pode ser lida em voz alta.</p></article>
+        </div>
+        <div class="pill-row"><span class="pill">Kotlin</span><span class="pill">Jetpack Compose</span><span class="pill">Android 11+ · API 30+</span><span class="pill">Modelos ML Kit no aparelho</span></div>
+        <p class="small">Compose respeita a barra inferior via <code>navigationBarsPadding()</code>; não há chamada explícita à API <code>enableEdgeToEdge()</code> nesta versão.</p>
+      </section>
+
+      <section class="slide" aria-label="Slide 5 de 9: arquitetura Android" aria-hidden="true">
+        <div class="slide-top"><span class="eyebrow">04 · Arquitetura Android</span><span class="speaker">Carlos · 1 min 30 s</span></div>
+        <h2>Uma sessão coordena os <span class="accent">pipelines</span>.</h2>
+        <svg class="diagram" viewBox="0 0 1000 400" role="img" aria-label="Diagrama: interface Compose envia modo ao SessionService, que coordena pipeline de tela e pipeline de voz; preferências são salvas no DataStore.">
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55dfa0"/></marker>
+            <marker id="arrow-soft" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#90a99a"/></marker>
+          </defs>
+          <rect class="node-alt" x="365" y="20" width="270" height="65" rx="14"/><text x="500" y="49" text-anchor="middle">Jetpack Compose</text><text class="sub" x="500" y="70" text-anchor="middle">modo · idiomas · controles</text>
+          <path class="path" d="M500 86 V125"/>
+          <rect class="node" x="365" y="132" width="270" height="70" rx="14"/><text x="500" y="163" text-anchor="middle">SessionService</text><text class="sub" x="500" y="185" text-anchor="middle">ForegroundService · ciclo de vida</text>
+          <path class="path" d="M410 203 C360 230 270 226 235 256"/><path class="path" d="M590 203 C640 230 730 226 765 256"/>
+          <rect class="node" x="40" y="264" width="390" height="92" rx="14"/><text x="235" y="295" text-anchor="middle">Pipeline de tela</text><text class="sub" x="235" y="319" text-anchor="middle">MediaProjection → ImageReader → ML Kit</text><text class="sub" x="235" y="340" text-anchor="middle">→ WindowManager overlay</text>
+          <rect class="node" x="570" y="264" width="390" height="92" rx="14"/><text x="765" y="295" text-anchor="middle">Pipeline de voz</text><text class="sub" x="765" y="319" text-anchor="middle">SpeechRecognizer → ML Kit Translation</text><text class="sub" x="765" y="340" text-anchor="middle">→ TextToSpeech</text>
+          <rect class="node-alt" x="425" y="258" width="150" height="72" rx="13"/><text x="500" y="286" text-anchor="middle">DataStore</text><text class="sub" x="500" y="307" text-anchor="middle">só preferências</text>
+          <path class="path-soft" d="M500 202 V244"/>
+        </svg>
+        <p class="small">Reconhecimento de voz é criado e acionado na Main Thread. O fallback para o serviço padrão pode depender de rede e do provedor configurado.</p>
+      </section>
+
+      <section class="slide" aria-label="Slide 6 de 9: fluxo de tradução de tela" aria-hidden="true">
+        <div class="slide-top"><span class="eyebrow">05 · Demonstração 1</span><span class="speaker">Sante · 1 min 15 s</span></div>
+        <h2>O texto fica sobre a <span class="accent">tela original</span>.</h2>
+        <div class="flow" aria-label="Fluxo de tradução de tela">
+          <div class="flow-node"><strong>Consentimento</strong><span>MediaProjection</span></div><span class="arrow">→</span>
+          <div class="flow-node"><strong>Captura</strong><span>ImageReader · polling 1,3 s</span></div><span class="arrow">→</span>
+          <div class="flow-node"><strong>OCR</strong><span>ML Kit Text Recognition</span></div><span class="arrow">→</span>
+          <div class="flow-node"><strong>Tradução</strong><span>modelo local do ML Kit</span></div><span class="arrow">→</span>
+          <div class="flow-node"><strong>Overlay</strong><span>arrastar · expandir · ajustar</span></div>
+        </div>
+        <div class="grid-4">
+          <article class="card"><h3>Arraste</h3><p>Barra superior reposiciona a janela.</p></article>
+          <article class="card"><h3>Toque</h3><p>Toque curto recolhe ou expande.</p></article>
+          <article class="card"><h3>Ajuste</h3><p><code>A-</code>, <code>A+</code> e transparência.</p></article>
+          <article class="card"><h3>Controle</h3><p><code>PAUSAR</code> e <code>FECHAR</code> encerram ou suspendem.</p></article>
+        </div>
+        <div class="flow-note"><span>●</span><span>Validação reportada: captura, OCR e tradução offline com ML Kit funcionaram em aparelho físico. Capturas permanecem sujeitas ao consentimento e às restrições do app de origem.</span></div>
+      </section>
+
+      <section class="slide" aria-label="Slide 7 de 9: fluxo de conversa por voz" aria-hidden="true">
+        <div class="slide-top"><span class="eyebrow">06 · Demonstração 2</span><span class="speaker">Sante · 1 min 15 s</span></div>
+        <h2>Turnos alternados, fala em <span class="accent">dois sentidos</span>.</h2>
+        <svg class="diagram" viewBox="0 0 1000 310" role="img" aria-label="Fluxo de voz: falante escolhe idioma, microfone captura, SpeechRecognizer transcreve, ML Kit traduz e TextToSpeech reproduz a tradução; o próximo falante inverte a direção.">
+          <defs>
+            <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#55dfa0"/></marker>
+            <marker id="arrow2soft" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#90a99a"/></marker>
+          </defs>
+          <path d="M110 93 H888" stroke="#55dfa0" stroke-width="2" fill="none" marker-end="url(#arrow2)"/>
+          <rect class="node-alt" x="25" y="45" width="165" height="95" rx="15"/><text x="107" y="80" text-anchor="middle">Falante</text><text class="sub" x="107" y="103" text-anchor="middle">Você · destino</text><text class="sub" x="107" y="121" text-anchor="middle">Interlocutor · origem</text>
+          <rect class="node" x="225" y="45" width="165" height="95" rx="15"/><text x="307" y="82" text-anchor="middle">Microfone</text><text class="sub" x="307" y="108" text-anchor="middle">RECORD_AUDIO</text>
+          <rect class="node" x="425" y="45" width="165" height="95" rx="15"/><text x="507" y="82" text-anchor="middle">SpeechRecognizer</text><text class="sub" x="507" y="108" text-anchor="middle">Main Thread · STT</text>
+          <rect class="node" x="625" y="45" width="150" height="95" rx="15"/><text x="700" y="82" text-anchor="middle">ML Kit</text><text class="sub" x="700" y="108" text-anchor="middle">tradução local</text>
+          <rect class="node-alt" x="810" y="45" width="165" height="95" rx="15"/><text x="892" y="82" text-anchor="middle">TextToSpeech</text><text class="sub" x="892" y="108" text-anchor="middle">fala · repetir</text>
+          <path d="M885 169 C885 264 125 264 125 169" stroke="#90a99a" stroke-width="2" fill="none" stroke-dasharray="7 7" marker-end="url(#arrow2soft)"/>
+          <text class="sub" x="500" y="239" text-anchor="middle">troca o falante · inverte idioma de entrada e saída · inicia o próximo turno</text>
+        </svg>
+        <div class="split">
+          <div class="card"><span class="label">Na tela</span><h3>Transcrição → tradução</h3><p>Texto parcial e final, indicação de idioma e estado de reconhecimento.</p></div>
+          <div class="card"><span class="label">Em áudio</span><h3>Fala de saída</h3><p>Voz offline, velocidade, volume e repetição quando o aparelho oferece uma voz compatível.</p></div>
+        </div>
+        <p class="small">A correção recente do botão de escuta e fallback foi feita após o teste físico; falta confirmar o comportamento nesta build.</p>
+      </section>
+
+      <section class="slide" aria-label="Slide 8 de 9: desafios técnicos" aria-hidden="true">
+        <div class="slide-top"><span class="eyebrow">07 · Aprendizados</span><span class="speaker">Tiago · 1 min 15 s</span></div>
+        <h2>O aparelho revelou detalhes que o código escondia.</h2>
+        <div class="checklist">
+          <div class="check"><b>✓</b><span><strong>OCR:</strong> registrar texto como visível antes de enviá-lo à tradução; pré-carregar modelo e continuar a captura.</span></div>
+          <div class="check"><b>✓</b><span><strong>Toque e arraste:</strong> usar <code>scaledTouchSlop</code> para não consumir o toque curto como gesto de movimento.</span></div>
+          <div class="check"><b>✓</b><span><strong>Reconhecimento de voz:</strong> criar e iniciar <code>SpeechRecognizer</code> na Main Thread e mostrar feedback para erros e fallback.</span></div>
+          <div class="check"><b>✓</b><span><strong>Área útil:</strong> aplicar <code>navigationBarsPadding()</code> para o conteúdo não ficar atrás da barra inferior.</span></div>
+        </div>
+        <div class="flow-note"><span>!</span><span>A captura/OCR de tela foi confirmada em aparelho físico. O ajuste final de voz precisa de nova validação física; não é apresentado como concluído.</span></div>
+      </section>
+
+      <section class="slide" aria-label="Slide 9 de 9: próximos passos e encerramento" aria-hidden="true">
+        <div class="slide-top"><span class="eyebrow">08 · Próximos passos</span><span class="speaker">Tiago · 1 min 15 s</span></div>
+        <h2>Do protótipo funcional à <span class="accent">confiabilidade</span>.</h2>
+        <div class="grid-3">
+          <article class="card"><div class="icon">01</div><h3>Revalidar voz</h3><p>Confirmar escuta, fallback, transcrição, tradução e TTS no APK mais recente.</p></article>
+          <article class="card"><div class="icon">02</div><h3>Medir em contexto</h3><p>Latência, compreensão, ruído, bateria e compatibilidade com apps e aparelhos.</p></article>
+          <article class="card"><div class="icon">03</div><h3>Áudio e histórico</h3><p>Ampliar validação de legendas de áudio interno e definir histórico útil sem persistir conteúdo por padrão.</p></article>
+        </div>
+        <div class="split">
+          <div><span class="status">MVP · progresso validado parcialmente</span><p class="small" style="margin-top:10px">Dois modos no mesmo app · consentimento explícito · processamento local priorizado</p></div>
+          <div class="card emphasis"><span class="label">Obrigado</span><h3>EasyApp Translator</h3><p>Brayan · Carlos · Sante · Tiago</p></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="footer">
+      <div class="progress-track" role="progressbar" aria-label="Progresso da apresentação" aria-valuemin="1" aria-valuemax="9" aria-valuenow="1"><div class="progress-fill" id="progress"></div></div>
+      <span class="counter" id="counter" aria-live="polite">01 / 09</span>
+      <div class="controls">
+        <span class="key-hint">← → ou espaço</span>
+        <button class="nav-btn" id="previous" type="button" aria-label="Slide anterior" title="Anterior (seta esquerda)">←</button>
+        <button class="nav-btn" id="next" type="button" aria-label="Próximo slide" title="Próximo (seta direita ou espaço)">→</button>
+      </div>
+    </div>
+    <div class="sr-only" id="announcement" aria-live="polite"></div>
+  </div>
+  <script>
+    (() => {
+      const slides = Array.from(document.querySelectorAll(".slide"));
+      const progress = document.getElementById("progress");
+      const track = document.querySelector("[role='progressbar']");
+      const counter = document.getElementById("counter");
+      const announcement = document.getElementById("announcement");
+      const previous = document.getElementById("previous");
+      const next = document.getElementById("next");
+      let current = 0;
+
+      function show(index) {
+        current = Math.max(0, Math.min(slides.length - 1, index));
+        slides.forEach((slide, i) => {
+          const active = i === current;
+          slide.classList.toggle("active", active);
+          slide.setAttribute("aria-hidden", String(!active));
+        });
+        const percent = ((current + 1) / slides.length) * 100;
+        progress.style.width = `${percent}%`;
+        track.setAttribute("aria-valuenow", String(current + 1));
+        counter.textContent = `${String(current + 1).padStart(2, "0")} / ${String(slides.length).padStart(2, "0")}`;
+        previous.disabled = current === 0;
+        next.disabled = current === slides.length - 1;
+        announcement.textContent = `Slide ${current + 1} de ${slides.length}: ${slides[current].getAttribute("aria-label")}`;
+        document.title = `${slides[current].querySelector("h1, h2")?.textContent.replace(/\s+/g, " ").trim() || "EasyApp Translator"} — ${current + 1}/${slides.length}`;
+      }
+
+      previous.addEventListener("click", () => show(current - 1));
+      next.addEventListener("click", () => show(current + 1));
+      document.addEventListener("keydown", (event) => {
+        if (event.altKey || event.ctrlKey || event.metaKey) return;
+        if (event.target.closest("button, a, input, textarea, select")) return;
+        if (["ArrowRight", " ", "PageDown"].includes(event.key)) {
+          event.preventDefault(); show(current + 1);
+        } else if (["ArrowLeft", "PageUp"].includes(event.key)) {
+          event.preventDefault(); show(current - 1);
+        } else if (event.key === "Home") {
+          event.preventDefault(); show(0);
+        } else if (event.key === "End") {
+          event.preventDefault(); show(slides.length - 1);
+        }
+      });
+      show(0);
+    })();
+  </script>
+</body>
+</html>

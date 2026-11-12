@@ -94,3 +94,8 @@ O workflow usa Ubuntu e JDK 17, executa `./gradlew assembleDebug` na pasta `andr
 6. Se a fala offline não estiver disponível, o app tentará o serviço padrão de reconhecimento do Android. Esse serviço pode exigir internet; verifique as configurações de privacidade do provedor ativo.
 
 Ao terminar qualquer modo, pare a sessão pela tela ou pela notificação persistente para encerrar a captura e descartar o conteúdo temporário.
+
+## Apresentação do projeto
+
+- [Roteiro acadêmico de 10 minutos, dividido entre os quatro integrantes](docs/APRESENTACAO.md)
+- [Slides interativos em HTML, autocontidos e utilizáveis offline](docs/apresentacao.html)
