@@ -7,6 +7,7 @@ import android.graphics.drawable.GradientDrawable
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
@@ -32,7 +33,8 @@ class TranslationOverlayController(
         textSize = 12f
         text = "EasyApp · procurando texto"
         setPadding(dp(4), dp(8), dp(4), dp(8))
-        contentDescription = "Arraste para mover a janela EasyApp"
+        contentDescription = "Toque para recolher ou expandir; arraste para mover a janela EasyApp"
+        isClickable = true
     }
     private val header = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
@@ -68,6 +70,7 @@ class TranslationOverlayController(
         width = dp(380).coerceAtMost((context.resources.displayMetrics.widthPixels - dp(24)).coerceAtLeast(dp(240)))
     }
     private var attached = false
+    // Each controller is created for a new screen-translation session, which starts expanded.
     private var collapsed = false
     private var fontSize = 16f
     private var backgroundAlpha = 92
@@ -99,6 +102,7 @@ class TranslationOverlayController(
         }
         alphaControl = opacityControl
         header.addView(status, LinearLayout.LayoutParams(0, dp(40), 1f))
+        status.setOnClickListener { toggleCollapsed() }
         header.addView(collapseButton)
         root.addView(header)
         root.addView(translationBand, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
@@ -172,6 +176,11 @@ class TranslationOverlayController(
         translationBand.visibility = if (!collapsed && hasResults) View.VISIBLE else View.GONE
         controls.visibility = if (collapsed) View.GONE else View.VISIBLE
         alphaControl?.visibility = if (collapsed) View.GONE else View.VISIBLE
+        params.width = dp(380).coerceAtMost(
+            (context.resources.displayMetrics.widthPixels - dp(24)).coerceAtLeast(dp(240)),
+        )
+        params.height = WindowManager.LayoutParams.WRAP_CONTENT
+        root.requestLayout()
         if (attached) runCatching { windowManager.updateViewLayout(root, params) }
     }
 
@@ -180,6 +189,8 @@ class TranslationOverlayController(
         var downY = 0f
         var initialX = 0
         var initialY = 0
+        var dragging = false
+        val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
         status.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN -> {
@@ -187,13 +198,28 @@ class TranslationOverlayController(
                     downY = event.rawY
                     initialX = params.x
                     initialY = params.y
+                    dragging = false
                     true
                 }
                 android.view.MotionEvent.ACTION_MOVE -> {
+                    val deltaX = event.rawX - downX
+                    val deltaY = event.rawY - downY
+                    if (!dragging && (kotlin.math.abs(deltaX) > touchSlop || kotlin.math.abs(deltaY) > touchSlop)) {
+                        dragging = true
+                    }
+                    if (!dragging) return@setOnTouchListener true
                     val metrics = context.resources.displayMetrics
-                    params.x = (initialX + event.rawX - downX).toInt().coerceIn(0, (metrics.widthPixels - root.width).coerceAtLeast(0))
-                    params.y = (initialY + event.rawY - downY).toInt().coerceIn(0, (metrics.heightPixels - root.height).coerceAtLeast(0))
+                    params.x = (initialX + deltaX).toInt().coerceIn(0, (metrics.widthPixels - root.width).coerceAtLeast(0))
+                    params.y = (initialY + deltaY).toInt().coerceIn(0, (metrics.heightPixels - root.height).coerceAtLeast(0))
                     if (attached) runCatching { windowManager.updateViewLayout(root, params) }
+                    true
+                }
+                android.view.MotionEvent.ACTION_UP -> {
+                    if (!dragging) status.performClick()
+                    true
+                }
+                android.view.MotionEvent.ACTION_CANCEL -> {
+                    dragging = false
                     true
                 }
                 else -> true
