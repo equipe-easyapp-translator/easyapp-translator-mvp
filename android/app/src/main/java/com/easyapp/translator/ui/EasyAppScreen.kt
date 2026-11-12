@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -61,6 +62,7 @@ fun EasyAppScreen(
     conversation: ConversationSnapshot,
     audioCaptions: AudioCaptionSnapshot,
     permissionState: PermissionUiState,
+    screenAudioCaptionsSelected: Boolean,
     showPrivacyNotice: Boolean,
     onModeSelected: (AppMode) -> Unit,
     onLanguagesSelected: (String, String) -> Unit,
@@ -81,6 +83,7 @@ fun EasyAppScreen(
     onConversationRateChanged: (Float) -> Unit,
     onConversationVolumeChanged: (Float) -> Unit,
     onClearAudioCaptions: () -> Unit,
+    onScreenAudioCaptionsSelected: (Boolean) -> Unit,
 ) {
     var showPermissionExplanation by remember { mutableStateOf(false) }
 
@@ -141,6 +144,13 @@ fun EasyAppScreen(
                     onSelect = { onModeSelected(mode) },
                 )
             }
+            if (preferences.preferredMode == AppMode.SCREEN) {
+                ScreenAudioCaptionsOption(
+                    selected = screenAudioCaptionsSelected,
+                    enabled = session.status == SessionStatus.IDLE,
+                    onSelected = onScreenAudioCaptionsSelected,
+                )
+            }
             PreferencesCard(preferences.qualityMode, onQualitySelected)
             PrivacyNote()
             Text(
@@ -156,7 +166,7 @@ fun EasyAppScreen(
             onDismissRequest = {},
             title = { Text("Permissões e privacidade") },
             text = {
-                Text("Antes de solicitar permissões: RECORD_AUDIO habilita conversa por voz e tentativa opcional de captura de áudio interno; no modo Tela o Android pode encaminhar o microfone se o reconhecedor não aceitar áudio PCM externo. POST_NOTIFICATIONS mantém visível o serviço ativo. Sobreposição e compartilhamento de tela serão solicitados separadamente ao usar o modo Tela. O conteúdo processado não é salvo após a sessão.")
+                Text("Antes de solicitar permissões: RECORD_AUDIO habilita conversa por voz e só será usado para legendas de áudio interno quando você ativar essa opção no modo Tela. POST_NOTIFICATIONS mantém visível o serviço ativo. Sobreposição e compartilhamento de tela serão solicitados separadamente ao usar o modo Tela. O conteúdo processado não é salvo após a sessão.")
             },
             confirmButton = {
                 TextButton(onClick = onPrivacyNoticeAccepted) { Text("Concordo e continuar") }
@@ -175,7 +185,11 @@ fun EasyAppScreen(
             text = {
                 Text(
                     if (mode == AppMode.SCREEN) {
-                        "O Android pedirá autorização para compartilhar a tela e acesso RECORD_AUDIO. Essa permissão é exigida pelo sistema para tentar capturar reprodução de outros apps. A transcrição exige Android 13+ e serviço local compatível com áudio PCM externo; o Android pode recorrer ao microfone se o serviço não suportar essa entrada. Se não quiser essa possibilidade, negue RECORD_AUDIO: o OCR de tela ainda pode ser usado. Muitos apps também bloqueiam a reprodução."
+                        if (screenAudioCaptionsSelected) {
+                            "O Android pedirá autorização para compartilhar a tela e acesso RECORD_AUDIO para as legendas opcionais de áudio interno que você ativou. A transcrição exige Android 13+ e serviço local compatível com áudio PCM externo; apps podem bloquear a captura. O OCR de tela continua ativo."
+                        } else {
+                            "O Android pedirá autorização para compartilhar a tela. Esta sessão usará OCR e tradução do texto visível; a captura de áudio interno está desativada."
+                        }
                     } else {
                         "O EasyApp pedirá acesso ao microfone. A fala é processada pelo serviço offline do Android quando disponível; instale os pacotes de idioma offline. Transcrições e traduções ficam apenas na sessão e são apagadas ao parar."
                     },
@@ -232,6 +246,27 @@ private fun PermissionStatusLine(label: String, granted: Boolean, detail: String
             style = MaterialTheme.typography.labelMedium,
             color = if (granted || detail != null) Green else Color(0xFF9A6B28),
         )
+    }
+}
+
+@Composable
+private fun ScreenAudioCaptionsOption(selected: Boolean, enabled: Boolean, onSelected: (Boolean) -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                SectionTitle("Legendas de áudio interno")
+                Text(
+                    "Opcional. Captura o áudio reproduzido por outros apps quando permitido. O OCR de tela funciona sem esta opção.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Muted,
+                )
+            }
+            Switch(checked = selected, onCheckedChange = onSelected, enabled = enabled)
+        }
     }
 }
 

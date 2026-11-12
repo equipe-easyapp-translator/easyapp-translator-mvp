@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
     private var pendingOverlayMode: AppMode? = null
     private var pendingProjectionMode: AppMode? = null
     private var pendingRuntimeMode: AppMode? = null
-    private var screenAudioCaptureGranted = false
+    private var screenAudioCaptionsSelected by mutableStateOf(false)
     private var permissionUiState by mutableStateOf(PermissionUiState())
     private var showPrivacyNotice by mutableStateOf(false)
 
@@ -73,10 +73,9 @@ class MainActivity : ComponentActivity() {
             val startIntent = SessionService.startIntent(this, mode)
                 .putExtra(SessionService.EXTRA_RESULT_CODE, result.resultCode)
                 .putExtra(SessionService.EXTRA_RESULT_DATA, result.data)
-                .putExtra(SessionService.EXTRA_CAPTURE_INTERNAL_AUDIO, screenAudioCaptureGranted && hasPermission(Manifest.permission.RECORD_AUDIO))
+                .putExtra(SessionService.EXTRA_CAPTURE_INTERNAL_AUDIO, screenAudioCaptionsSelected && hasPermission(Manifest.permission.RECORD_AUDIO))
             runCatching { startForegroundService(this, startIntent) }
                 .onFailure { SessionStateHolder.stop("Não foi possível iniciar o serviço da sessão") }
-            screenAudioCaptureGranted = false
         } else if (mode != null) {
             SessionStateHolder.stop("A captura de tela não foi autorizada")
         }
@@ -107,6 +106,7 @@ class MainActivity : ComponentActivity() {
                     conversation = conversation,
                     audioCaptions = audioCaptions,
                     permissionState = permissionUiState,
+                    screenAudioCaptionsSelected = screenAudioCaptionsSelected,
                     showPrivacyNotice = showPrivacyNotice,
                     onModeSelected = { mode -> lifecycleScope.launch { preferencesRepository.setPreferredMode(mode) } },
                     onLanguagesSelected = { source, target ->
@@ -139,6 +139,7 @@ class MainActivity : ComponentActivity() {
                     onConversationRateChanged = { rate -> sendConversationFloat(SessionService.ACTION_CONVERSATION_RATE, rate) },
                     onConversationVolumeChanged = { volume -> sendConversationFloat(SessionService.ACTION_CONVERSATION_VOLUME, volume) },
                     onClearAudioCaptions = { sendSessionAction(SessionService.ACTION_CLEAR_AUDIO_HISTORY) },
+                    onScreenAudioCaptionsSelected = { selected -> screenAudioCaptionsSelected = selected },
                 )
             }
         }
@@ -187,7 +188,6 @@ class MainActivity : ComponentActivity() {
                     pendingOverlayMode = mode
                     openOverlaySettings()
                 } else {
-                    screenAudioCaptureGranted = hasPermission(Manifest.permission.RECORD_AUDIO)
                     requestProjectionConsent(mode)
                 }
             }

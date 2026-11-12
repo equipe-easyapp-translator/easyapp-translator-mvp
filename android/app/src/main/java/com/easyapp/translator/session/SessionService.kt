@@ -335,7 +335,8 @@ class SessionService : Service() {
                     audioCaptionExpiry = expiry
                     mainHandler.postDelayed(expiry, 7000L)
                 }
-                refreshOverlay(update.status)
+                // Audio state is shown in its own card; keep the overlay focused on screen OCR.
+                refreshOverlay()
             }
             audioCaptionPipeline = pipeline
             pipeline.start()

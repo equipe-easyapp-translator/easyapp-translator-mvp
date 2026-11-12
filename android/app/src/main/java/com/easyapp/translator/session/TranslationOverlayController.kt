@@ -67,7 +67,7 @@ class TranslationOverlayController(
         gravity = Gravity.TOP or Gravity.START
         x = dp(12)
         y = dp(120)
-        width = dp(380).coerceAtMost((context.resources.displayMetrics.widthPixels - dp(24)).coerceAtLeast(dp(240)))
+        width = overlayWidth()
     }
     private var attached = false
     // Each controller is created for a new screen-translation session, which starts expanded.
@@ -81,12 +81,12 @@ class TranslationOverlayController(
         translationScroll.addView(translations)
         translationBand.addView(
             translationScroll,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(180)),
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT),
         )
-        controls.addView(actionButton("−") { setFontSize(fontSize - 1f) })
-        controls.addView(actionButton("A+") { setFontSize(fontSize + 1f) })
-        controls.addView(pauseButton)
-        controls.addView(actionButton("Fechar") { onStop() })
+        controls.addView(actionButton("A-") { setFontSize(fontSize - 1f) }, LinearLayout.LayoutParams(0, dp(38), 1f))
+        controls.addView(actionButton("A+") { setFontSize(fontSize + 1f) }, LinearLayout.LayoutParams(0, dp(38), 1f))
+        controls.addView(pauseButton, LinearLayout.LayoutParams(0, dp(38), 1f))
+        controls.addView(actionButton("Fechar") { onStop() }, LinearLayout.LayoutParams(0, dp(38), 1f))
         val opacityControl = SeekBar(context).apply {
             max = 100
             progress = backgroundAlpha
@@ -176,9 +176,7 @@ class TranslationOverlayController(
         translationBand.visibility = if (!collapsed && hasResults) View.VISIBLE else View.GONE
         controls.visibility = if (collapsed) View.GONE else View.VISIBLE
         alphaControl?.visibility = if (collapsed) View.GONE else View.VISIBLE
-        params.width = dp(380).coerceAtMost(
-            (context.resources.displayMetrics.widthPixels - dp(24)).coerceAtLeast(dp(240)),
-        )
+        params.width = overlayWidth()
         params.height = WindowManager.LayoutParams.WRAP_CONTENT
         root.requestLayout()
         if (attached) runCatching { windowManager.updateViewLayout(root, params) }
@@ -237,6 +235,8 @@ class TranslationOverlayController(
         textSize = 11f
         minHeight = dp(38)
         minimumHeight = dp(38)
+        minWidth = 0
+        minimumWidth = 0
         setPadding(dp(3), 0, dp(3), 0)
         setOnClickListener { action() }
     }
@@ -247,4 +247,8 @@ class TranslationOverlayController(
     }
 
     private fun dp(value: Int) = (value * density).toInt()
+
+    private fun overlayWidth(): Int = dp(380).coerceAtMost(
+        (context.resources.displayMetrics.widthPixels - dp(32)).coerceAtLeast(dp(1)),
+    )
 }
