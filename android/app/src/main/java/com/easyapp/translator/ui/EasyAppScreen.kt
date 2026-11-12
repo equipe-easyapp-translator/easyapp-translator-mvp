@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.easyapp.translator.data.QualityMode
 import com.easyapp.translator.data.UserPreferences
 import com.easyapp.translator.session.AppMode
+import com.easyapp.translator.session.AudioCaptionSnapshot
 import com.easyapp.translator.session.ConversationSnapshot
 import com.easyapp.translator.session.ConversationSpeaker
 import com.easyapp.translator.session.SessionSnapshot
@@ -56,6 +57,7 @@ fun EasyAppScreen(
     preferences: UserPreferences,
     session: SessionSnapshot,
     conversation: ConversationSnapshot,
+    audioCaptions: AudioCaptionSnapshot,
     onModeSelected: (AppMode) -> Unit,
     onLanguageSelected: (String) -> Unit,
     onQualitySelected: (QualityMode) -> Unit,
@@ -71,6 +73,7 @@ fun EasyAppScreen(
     onConversationVoiceSelected: (String) -> Unit,
     onConversationRateChanged: (Float) -> Unit,
     onConversationVolumeChanged: (Float) -> Unit,
+    onClearAudioCaptions: () -> Unit,
 ) {
     var showPermissionExplanation by remember { mutableStateOf(false) }
 
@@ -105,6 +108,9 @@ fun EasyAppScreen(
                     onVolumeChanged = onConversationVolumeChanged,
                 )
             }
+            if (session.mode == AppMode.SCREEN) {
+                AudioCaptionsCard(audioCaptions, session.status == SessionStatus.ACTIVE, onClearAudioCaptions)
+            }
             SectionTitle("Escolha como quer traduzir")
             AppMode.entries.forEach { mode ->
                 ModeCard(
@@ -135,7 +141,7 @@ fun EasyAppScreen(
             text = {
                 Text(
                     if (mode == AppMode.SCREEN) {
-                        "O Android pedirá autorização para compartilhar a tela nesta sessão. O EasyApp também precisa da permissão de sobreposição para mostrar a tradução. Você pode parar a sessão pelo app ou pela notificação."
+                        "O Android pedirá autorização para compartilhar a tela e acesso RECORD_AUDIO. Essa permissão é exigida pelo sistema para tentar capturar reprodução de outros apps. A transcrição exige Android 13+ e serviço local compatível com áudio PCM externo; o Android pode recorrer ao microfone se o serviço não suportar essa entrada. Se não quiser essa possibilidade, negue RECORD_AUDIO: o OCR de tela ainda pode ser usado. Muitos apps também bloqueiam a reprodução."
                     } else {
                         "O EasyApp pedirá acesso ao microfone. A fala é processada pelo serviço offline do Android quando disponível; instale os pacotes de idioma offline. Transcrições e traduções ficam apenas na sessão e são apagadas ao parar."
                     },
@@ -151,6 +157,30 @@ fun EasyAppScreen(
                 TextButton(onClick = { showPermissionExplanation = false }) { Text("Agora não") }
             },
         )
+    }
+}
+
+@Composable
+private fun AudioCaptionsCard(state: AudioCaptionSnapshot, enabled: Boolean, onClear: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(18.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SectionTitle("Legendas de áudio interno")
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onClear, enabled = enabled && state.history.isNotEmpty()) { Text("Limpar agora") }
+            }
+            Text(state.status, style = MaterialTheme.typography.bodySmall, color = Muted)
+            if (state.vadActive) Text("Atividade de áudio detectada", color = Green, style = MaterialTheme.typography.labelMedium)
+            if (state.partialText.isNotBlank()) Text("… ${state.partialText}", color = Ink, style = MaterialTheme.typography.bodyMedium)
+            state.history.takeLast(4).forEach { item ->
+                Column(Modifier.fillMaxWidth().background(Page, RoundedCornerShape(10.dp)).padding(10.dp)) {
+                    Text("Áudio interno · turno ${item.turn}", color = Green, style = MaterialTheme.typography.labelSmall)
+                    Text(item.source, color = Muted, style = MaterialTheme.typography.bodySmall)
+                    Text(item.translated, color = Ink, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            Text("Buffer recente somente em RAM; é descartado ao parar a sessão.", color = Muted, style = MaterialTheme.typography.labelSmall)
+        }
     }
 }
 

@@ -26,6 +26,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class SessionService : Service() {
@@ -35,6 +36,11 @@ class SessionService : Service() {
     private var screenPipeline: ScreenTranslationPipeline? = null
     private var overlay: TranslationOverlayController? = null
     private var conversationEngine: ConversationEngine? = null
+    private var audioCaptionPipeline: AudioPlaybackCaptionPipeline? = null
+    private var screenResults: List<ScreenTranslation> = emptyList()
+    private var screenMessage: String? = null
+    private var activeAudioCaption: ScreenTranslation? = null
+    private var audioCaptionExpiry: Runnable? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -54,6 +60,9 @@ class SessionService : Service() {
             ACTION_START -> startSession(intent)
             ACTION_PAUSE -> {
                 screenPipeline?.pauseAndClear()
+                audioCaptionPipeline?.pause()
+                AudioCaptionStateHolder.clear("Sessão pausada; buffer de áudio volátil descartado.")
+                activeAudioCaption = null
                 conversationEngine?.pause()
                 overlay?.show(emptyList(), "Sessão pausada")
                 SessionStateHolder.pause()
@@ -62,6 +71,7 @@ class SessionService : Service() {
             ACTION_RESUME -> {
                 SessionStateHolder.resume()
                 screenPipeline?.resume()
+                audioCaptionPipeline?.resume()
                 if (currentMode == AppMode.CONVERSATION) {
                     ConversationStateHolder.update { it.copy(status = "Conversa retomada. Escolha quem fala e inicie um turno.") }
                 }
@@ -78,6 +88,13 @@ class SessionService : Service() {
                 ?.let { conversationEngine?.selectVoice(it) }
             ACTION_CONVERSATION_RATE -> conversationEngine?.setSpeechRate(intent.getFloatExtra(EXTRA_CONVERSATION_VALUE, 1f))
             ACTION_CONVERSATION_VOLUME -> conversationEngine?.setVolume(intent.getFloatExtra(EXTRA_CONVERSATION_VALUE, 1f))
+            ACTION_CLEAR_AUDIO_HISTORY -> {
+                audioCaptionPipeline?.clearHistory() ?: AudioCaptionStateHolder.clearHistory()
+                activeAudioCaption = null
+                audioCaptionExpiry?.let(mainHandler::removeCallbacks)
+                audioCaptionExpiry = null
+                refreshOverlay()
+            }
             ACTION_STOP -> stopSession("Sessão encerrada pelo usuário")
             else -> stopSelf(startId)
         }
@@ -118,7 +135,13 @@ class SessionService : Service() {
             }
 
             SessionStateHolder.start(mode)
-            if (mode == AppMode.SCREEN) startScreenPipeline()
+            if (mode == AppMode.SCREEN) {
+                screenResults = emptyList()
+                screenMessage = "Aponte para texto em inglês ou espanhol"
+                if (startIntent.getBooleanExtra(EXTRA_CAPTURE_INTERNAL_AUDIO, false)) startAudioCaptionPipeline()
+                else AudioCaptionStateHolder.clear("Legendas de áudio desativadas; OCR de tela continua ativo.")
+                startScreenPipeline()
+            }
             if (mode == AppMode.CONVERSATION) startConversationEngine()
             updateNotification()
         } catch (exception: SecurityException) {
@@ -132,6 +155,12 @@ class SessionService : Service() {
         ending = true
         screenPipeline?.closeAndClear()
         screenPipeline = null
+        audioCaptionPipeline?.close()
+        audioCaptionPipeline = null
+        screenResults = emptyList()
+        activeAudioCaption = null
+        audioCaptionExpiry?.let(mainHandler::removeCallbacks)
+        audioCaptionExpiry = null
         conversationEngine?.close()
         conversationEngine = null
         overlay?.hide()
@@ -208,6 +237,8 @@ class SessionService : Service() {
     override fun onDestroy() {
         screenPipeline?.closeAndClear()
         screenPipeline = null
+        audioCaptionPipeline?.close()
+        audioCaptionPipeline = null
         conversationEngine?.close()
         conversationEngine = null
         overlay?.hide()
@@ -244,7 +275,9 @@ class SessionService : Service() {
             ) { results, message ->
                 mainHandler.post {
                     if (!ending && SessionStateHolder.snapshot.value.status != SessionStatus.IDLE) {
-                        overlayController.show(results, message)
+                        screenResults = results
+                        screenMessage = message
+                        refreshOverlay()
                     }
                 }
             }
@@ -265,6 +298,43 @@ class SessionService : Service() {
                 pipeline.closeAndClear()
             }
         }
+    }
+
+    private fun startAudioCaptionPipeline() {
+        val activeProjection = mediaProjection ?: return
+        serviceScope.launch {
+            val preferences = UserPreferencesRepository(applicationContext).preferences
+            var settings = preferences.first().let { it.sourceLanguage to it.qualityMode.name }
+            val pipeline = AudioPlaybackCaptionPipeline(applicationContext, activeProjection, settings.first, settings.second) { update ->
+                if (ending || SessionStateHolder.snapshot.value.status == SessionStatus.IDLE) return@AudioPlaybackCaptionPipeline
+                update.caption?.let { caption ->
+                    activeAudioCaption = caption
+                    audioCaptionExpiry?.let(mainHandler::removeCallbacks)
+                    val expiry = Runnable { activeAudioCaption = null; refreshOverlay() }
+                    audioCaptionExpiry = expiry
+                    mainHandler.postDelayed(expiry, 7000L)
+                }
+                refreshOverlay(update.status)
+            }
+            audioCaptionPipeline = pipeline
+            pipeline.start()
+            preferences.map { it.sourceLanguage to it.qualityMode.name }
+                .distinctUntilChanged()
+                .collect { next ->
+                    if (next != settings && !ending && SessionStateHolder.snapshot.value.status == SessionStatus.ACTIVE) {
+                        settings = next
+                        audioCaptionPipeline?.updateConfiguration(settings.first, settings.second)
+                    }
+                }
+        }
+    }
+
+    private fun refreshOverlay(message: String? = screenMessage) {
+        val combined = buildList {
+            activeAudioCaption?.let(::add)
+            addAll(screenResults)
+        }
+        overlay?.show(combined, message)
     }
 
     private fun startConversationEngine() {
@@ -301,12 +371,14 @@ class SessionService : Service() {
         const val ACTION_CONVERSATION_VOICE = "com.easyapp.translator.session.CONVERSATION_VOICE"
         const val ACTION_CONVERSATION_RATE = "com.easyapp.translator.session.CONVERSATION_RATE"
         const val ACTION_CONVERSATION_VOLUME = "com.easyapp.translator.session.CONVERSATION_VOLUME"
+        const val ACTION_CLEAR_AUDIO_HISTORY = "com.easyapp.translator.session.CLEAR_AUDIO_HISTORY"
         const val EXTRA_CONVERSATION_SPEAKER = "conversation_speaker"
         const val EXTRA_CONVERSATION_VOICE = "conversation_voice"
         const val EXTRA_CONVERSATION_VALUE = "conversation_value"
         const val EXTRA_MODE = "session_mode"
         const val EXTRA_RESULT_CODE = "projection_result_code"
         const val EXTRA_RESULT_DATA = "projection_result_data"
+        const val EXTRA_CAPTURE_INTERNAL_AUDIO = "capture_internal_audio"
 
         private const val CHANNEL_ID = "translation_session"
         private const val NOTIFICATION_ID = 1201

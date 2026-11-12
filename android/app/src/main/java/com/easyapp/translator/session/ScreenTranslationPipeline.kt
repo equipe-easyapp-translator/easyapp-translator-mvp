@@ -25,7 +25,7 @@ import java.util.concurrent.Executor
 import java.util.Locale
 import java.util.Collections
 
-data class ScreenTranslation(val source: String, val translated: String)
+data class ScreenTranslation(val source: String, val translated: String, val speakerLabel: String? = null)
 
 /** Captures only the latest frame, performs on-device OCR/translation, and keeps results in memory. */
 class ScreenTranslationPipeline(

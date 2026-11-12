@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat.startForegroundService
 import androidx.lifecycle.lifecycleScope
 import com.easyapp.translator.data.UserPreferencesRepository
 import com.easyapp.translator.session.AppMode
+import com.easyapp.translator.session.AudioCaptionStateHolder
 import com.easyapp.translator.session.ConversationSpeaker
 import com.easyapp.translator.session.ConversationStateHolder
 import com.easyapp.translator.session.SessionService
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
     private var pendingOverlayMode: AppMode? = null
     private var pendingProjectionMode: AppMode? = null
     private var pendingNotificationMode: AppMode? = null
+    private var screenAudioCaptureGranted = false
 
     private val notificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -52,6 +54,9 @@ class MainActivity : ComponentActivity() {
         pendingProjectionMode = null
         if (granted && mode == AppMode.CONVERSATION) {
             launchSessionService(mode)
+        } else if (mode == AppMode.SCREEN) {
+            screenAudioCaptureGranted = granted
+            requestProjectionConsent(mode)
         } else if (mode != null) {
             SessionStateHolder.stop("A permissão de microfone não foi concedida")
         }
@@ -66,8 +71,10 @@ class MainActivity : ComponentActivity() {
             val startIntent = SessionService.startIntent(this, mode)
                 .putExtra(SessionService.EXTRA_RESULT_CODE, result.resultCode)
                 .putExtra(SessionService.EXTRA_RESULT_DATA, result.data)
+                .putExtra(SessionService.EXTRA_CAPTURE_INTERNAL_AUDIO, screenAudioCaptureGranted && hasPermission(Manifest.permission.RECORD_AUDIO))
             runCatching { startForegroundService(this, startIntent) }
                 .onFailure { SessionStateHolder.stop("Não foi possível iniciar o serviço da sessão") }
+            screenAudioCaptureGranted = false
         } else if (mode != null) {
             SessionStateHolder.stop("A captura de tela não foi autorizada")
         }
@@ -81,12 +88,14 @@ class MainActivity : ComponentActivity() {
             )
             val session by SessionStateHolder.snapshot.collectAsState()
             val conversation by ConversationStateHolder.state.collectAsState()
+            val audioCaptions by AudioCaptionStateHolder.state.collectAsState()
 
             EasyAppTheme {
                 EasyAppScreen(
                     preferences = preferences,
                     session = session,
                     conversation = conversation,
+                    audioCaptions = audioCaptions,
                     onModeSelected = { mode -> lifecycleScope.launch { preferencesRepository.setPreferredMode(mode) } },
                     onLanguageSelected = { language -> lifecycleScope.launch { preferencesRepository.setSourceLanguage(language) } },
                     onQualitySelected = { quality -> lifecycleScope.launch { preferencesRepository.setQualityMode(quality) } },
@@ -106,6 +115,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onConversationRateChanged = { rate -> sendConversationFloat(SessionService.ACTION_CONVERSATION_RATE, rate) },
                     onConversationVolumeChanged = { volume -> sendConversationFloat(SessionService.ACTION_CONVERSATION_VOLUME, volume) },
+                    onClearAudioCaptions = { sendSessionAction(SessionService.ACTION_CLEAR_AUDIO_HISTORY) },
                 )
             }
         }
@@ -116,7 +126,7 @@ class MainActivity : ComponentActivity() {
         val overlayMode = pendingOverlayMode
         if (overlayMode != null && Settings.canDrawOverlays(this)) {
             pendingOverlayMode = null
-            requestProjectionConsent(overlayMode)
+            continueStart(overlayMode)
         }
 
         val session = SessionStateHolder.snapshot.value
@@ -149,7 +159,13 @@ class MainActivity : ComponentActivity() {
                     pendingOverlayMode = mode
                     openOverlaySettings()
                 } else {
-                    requestProjectionConsent(mode)
+                    if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
+                        pendingProjectionMode = mode
+                        microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                    } else {
+                        screenAudioCaptureGranted = true
+                        requestProjectionConsent(mode)
+                    }
                 }
             }
             AppMode.CONVERSATION -> {

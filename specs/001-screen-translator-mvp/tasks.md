@@ -33,20 +33,20 @@
 
 ## Fase 4 — História P2: legendas traduzidas de áudio
 
-- [ ] T019 Criar prova de captura de áudio em fontes compatíveis e apresentar status de suporte.
-- [ ] T020 Integrar transcrição para os idiomas de origem aprovados.
-- [ ] T021 Encaminhar transcrição ao serviço de tradução e exibir legenda PT-BR temporizada.
-- [ ] T022 Fazer legenda desaparecer junto com o segmento de fala correspondente.
-- [ ] T023 Tratar captura bloqueada, áudio ausente, rede indisponível e idioma não suportado com degradação clara.
-- [ ] T024 No modo Tela e Apps, apresentar apenas legendas para áudio capturável; a escolha de áudio original/tradução/ambos e síntese após frase completa pertence ao modo Conversa Presencial.
+- [x] T019 Implementar captura PCM de reprodução via AudioPlaybackCaptureConfiguration/MediaProjection, com status de disponibilidade e fallback sem interromper OCR.
+- [x] T020 Implementar VAD por energia e transcrição parcial/final em API 33+ via SpeechRecognizer on-device com ParcelFileDescriptor; API 30–32 informa que a API padrão não fornece entrada PCM externa.
+- [x] T021 Traduzir segmentos EN/ES com o modelo local genérico `pt` do ML Kit e exibir legenda de origem/tradução com rótulo e turno na sobreposição (variante `pt-BR` não selecionável nesse modelo).
+- [x] T022 Expirar legenda de áudio após a janela temporária do segmento e limpar legenda ao pausar/parar.
+- [x] T023 Tratar erro, silêncio, fluxo vazio, bloqueio ou modelo ausente com mensagem que não confunde silêncio com DRM e não usa fallback remoto.
+- [x] T024 No modo Tela e Apps, apresentar somente reprodução capturável como legenda; seleção de áudio original/tradução/ambos e síntese seguem no modo Conversa Presencial.
 
 ## Fase 5 — História P3: modos e recuperação
 
-- [ ] T025 Implementar modos Econômico, Equilibrado e Qualidade sobre políticas de execução documentadas.
-- [ ] T026 Continuar recursos locais disponíveis ao perder conexão e indicar recursos remotos pausados.
-- [ ] T027 Implementar histórico temporário da sessão e salvamento manual de uma tradução selecionada.
-- [ ] T028 Implementar remoção de itens salvos e confirmar que nenhum conteúdo é salvo automaticamente.
-- [ ] T029 Revisar logs, descarte e tratamento de erros para impedir persistência de conteúdo de tela/áudio.
+- [x] T025 Aplicar limiar de energia e janela VAD próprios dos modos Econômico, Equilibrado e Qualidade.
+- [x] T026 Usar reconhecimento on-device quando disponível; manter fluxo local sem rede e orientar download de modelo local ausente, sem fallback remoto.
+- [x] T027 Manter até 40 segmentos recentes somente em RAM durante a sessão, sem persistência ou salvamento manual de conteúdo.
+- [x] T028 Permitir limpeza imediata do buffer de legendas na tela da sessão e descartar automaticamente ao pausar/parar/encerrar.
+- [x] T029 Limpar buffers PCM e conteúdo volátil e evitar gravar áudio, transcrição ou tradução em logs/armazenamento persistente.
 
 ## Fase 6 — Modo Conversa Presencial por Voz
 

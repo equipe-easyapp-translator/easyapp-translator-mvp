@@ -113,8 +113,16 @@ class TranslationOverlayController(
         translationBand.visibility = if (results.isEmpty()) View.GONE else View.VISIBLE
         translations.removeAllViews()
         results.take(8).forEach { item ->
+            item.speakerLabel?.let { speaker ->
+                translations.addView(TextView(context).apply {
+                    text = speaker
+                    setTextColor(0xFFB9DCC6.toInt())
+                    textSize = 11f
+                    setPadding(0, dp(3), 0, 0)
+                })
+            }
             val label = TextView(context).apply {
-                text = item.translated
+                text = item.translated.ifBlank { item.source }
                 setTextColor(Color.WHITE)
                 textSize = fontSize
                 setPadding(0, dp(3), 0, dp(3))
