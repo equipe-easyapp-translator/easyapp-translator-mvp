@@ -19,6 +19,8 @@ import androidx.core.content.ContextCompat.startForegroundService
 import androidx.lifecycle.lifecycleScope
 import com.easyapp.translator.data.UserPreferencesRepository
 import com.easyapp.translator.session.AppMode
+import com.easyapp.translator.session.ConversationSpeaker
+import com.easyapp.translator.session.ConversationStateHolder
 import com.easyapp.translator.session.SessionService
 import com.easyapp.translator.session.SessionStateHolder
 import com.easyapp.translator.ui.EasyAppScreen
@@ -78,11 +80,13 @@ class MainActivity : ComponentActivity() {
                 initial = com.easyapp.translator.data.UserPreferences.DEFAULT,
             )
             val session by SessionStateHolder.snapshot.collectAsState()
+            val conversation by ConversationStateHolder.state.collectAsState()
 
             EasyAppTheme {
                 EasyAppScreen(
                     preferences = preferences,
                     session = session,
+                    conversation = conversation,
                     onModeSelected = { mode -> lifecycleScope.launch { preferencesRepository.setPreferredMode(mode) } },
                     onLanguageSelected = { language -> lifecycleScope.launch { preferencesRepository.setSourceLanguage(language) } },
                     onQualitySelected = { quality -> lifecycleScope.launch { preferencesRepository.setQualityMode(quality) } },
@@ -91,6 +95,17 @@ class MainActivity : ComponentActivity() {
                     onResumeRequested = { sendSessionAction(SessionService.ACTION_RESUME) },
                     onStopRequested = { sendSessionAction(SessionService.ACTION_STOP) },
                     onOpenOverlaySettings = ::openOverlaySettings,
+                    onConversationSpeakerSelected = { speaker ->
+                        sendConversationValue(SessionService.ACTION_CONVERSATION_SPEAKER, SessionService.EXTRA_CONVERSATION_SPEAKER, speaker.name)
+                    },
+                    onConversationListen = { sendSessionAction(SessionService.ACTION_CONVERSATION_LISTEN) },
+                    onConversationCancel = { sendSessionAction(SessionService.ACTION_CONVERSATION_CANCEL) },
+                    onConversationRepeat = { sendSessionAction(SessionService.ACTION_CONVERSATION_REPEAT) },
+                    onConversationVoiceSelected = { voiceId ->
+                        sendConversationValue(SessionService.ACTION_CONVERSATION_VOICE, SessionService.EXTRA_CONVERSATION_VOICE, voiceId)
+                    },
+                    onConversationRateChanged = { rate -> sendConversationFloat(SessionService.ACTION_CONVERSATION_RATE, rate) },
+                    onConversationVolumeChanged = { volume -> sendConversationFloat(SessionService.ACTION_CONVERSATION_VOLUME, volume) },
                 )
             }
         }
@@ -162,6 +177,19 @@ class MainActivity : ComponentActivity() {
     private fun sendSessionAction(action: String) {
         runCatching { startService(SessionService.controlIntent(this, action)) }
             .onFailure { SessionStateHolder.stop("O serviço da sessão já foi encerrado") }
+    }
+
+    private fun sendConversationValue(action: String, key: String, value: String) {
+        val intent = SessionService.conversationIntent(this, action).putExtra(key, value)
+        runCatching { startService(intent) }
+            .onFailure { SessionStateHolder.stop("O serviço da conversa já foi encerrado") }
+    }
+
+    private fun sendConversationFloat(action: String, value: Float) {
+        val intent = SessionService.conversationIntent(this, action)
+            .putExtra(SessionService.EXTRA_CONVERSATION_VALUE, value)
+        runCatching { startService(intent) }
+            .onFailure { SessionStateHolder.stop("O serviço da conversa já foi encerrado") }
     }
 
     private fun openOverlaySettings() {

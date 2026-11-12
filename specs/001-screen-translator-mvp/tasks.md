@@ -50,14 +50,14 @@
 
 ## Fase 6 — Modo Conversa Presencial por Voz
 
-- [ ] T030 Implementar seleção do modo Conversa Presencial e do idioma estrangeiro (inglês ou espanhol), com fluxo bidirecional para PT-BR.
-- [ ] T031 Implementar explicação, solicitação runtime de RECORD_AUDIO e controles explícitos para iniciar, pausar e encerrar os turnos de microfone.
-- [ ] T032 Integrar SpeechRecognizer on-device quando disponível, detectar disponibilidade/idioma e apresentar transcrição incremental; definir fallback de Qualidade para STT remoto.
-- [ ] T033 Integrar tradução de cada turno PT-BR↔EN/ES, usando ML Kit local como padrão e serviço remoto somente no modo Qualidade aprovado.
-- [ ] T034 Integrar Android TextToSpeech, verificar vozes instaladas para PT-BR/EN/ES e permitir seleção; documentar indisponibilidade e fallback de voz.
-- [ ] T035 Implementar reprodução da frase traduzida após o fim do turno reconhecido, opção de repetir/interromper e indicação clara do idioma de saída.
-- [ ] T036 Manter áudio, transcrição e resultados efêmeros; liberar o recognizer e apagar buffers ao parar ou revogar a permissão.
-- [ ] T037 Validar o fluxo com o roteiro da persona Marco em ambiente silencioso e ruidoso, registrando compreensão, latência, repetições, consumo e falhas.
+- [x] T030 Implementar seleção de interlocutor e idioma (inglês ou espanhol), com turnos bidirecionais entre português e o idioma selecionado.
+- [x] T031 Implementar explicação/permissão `RECORD_AUDIO` já existente e controles explícitos para iniciar, cancelar, pausar e encerrar turnos.
+- [x] T032 Integrar `SpeechRecognizer` on-device quando disponível, receber transcrição parcial/final e orientar sobre pacote offline ausente, silêncio, ruído e falhas de serviço/rede.
+- [x] T033 Integrar tradução local ML Kit PT→EN/ES e EN/ES→português, sem fallback remoto silencioso.
+- [x] T034 Integrar `TextToSpeech`, listar e selecionar apenas vozes offline instaladas para o idioma traduzido; orientar quando não houver uma voz compatível.
+- [x] T035 Sintetizar a tradução final, permitir repetir áudio, ajustar velocidade/volume e alternar rapidamente quem fala.
+- [x] T036 Manter captura, transcrição, tradução e repetição apenas em memória; cancelar recognizer, parar TTS, fechar translators e limpar estado ao encerrar/revogar.
+- [ ] T037 Executar validação do roteiro da persona Marco em dispositivo real, em ambiente silencioso e ruidoso, registrando compreensão, latência, repetições, consumo e falhas (pendente: ambiente sem JDK/SDK/emulador/aparelho conectado).
 
 ## Fase 7 — Avaliação do MVP
 

@@ -20,8 +20,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import com.easyapp.translator.data.QualityMode
 import com.easyapp.translator.data.UserPreferences
 import com.easyapp.translator.session.AppMode
+import com.easyapp.translator.session.ConversationSnapshot
+import com.easyapp.translator.session.ConversationSpeaker
 import com.easyapp.translator.session.SessionSnapshot
 import com.easyapp.translator.session.SessionStatus
 
@@ -50,6 +55,7 @@ private val Muted = Color(0xFF72776E)
 fun EasyAppScreen(
     preferences: UserPreferences,
     session: SessionSnapshot,
+    conversation: ConversationSnapshot,
     onModeSelected: (AppMode) -> Unit,
     onLanguageSelected: (String) -> Unit,
     onQualitySelected: (QualityMode) -> Unit,
@@ -58,6 +64,13 @@ fun EasyAppScreen(
     onResumeRequested: () -> Unit,
     onStopRequested: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
+    onConversationSpeakerSelected: (ConversationSpeaker) -> Unit,
+    onConversationListen: () -> Unit,
+    onConversationCancel: () -> Unit,
+    onConversationRepeat: () -> Unit,
+    onConversationVoiceSelected: (String) -> Unit,
+    onConversationRateChanged: (Float) -> Unit,
+    onConversationVolumeChanged: (Float) -> Unit,
 ) {
     var showPermissionExplanation by remember { mutableStateOf(false) }
 
@@ -78,6 +91,20 @@ fun EasyAppScreen(
                 onResume = onResumeRequested,
                 onStop = onStopRequested,
             )
+            if (session.mode == AppMode.CONVERSATION) {
+                ConversationCard(
+                    state = conversation,
+                    sourceLanguage = preferences.sourceLanguage,
+                    enabled = session.status == SessionStatus.ACTIVE,
+                    onSpeakerSelected = onConversationSpeakerSelected,
+                    onListen = onConversationListen,
+                    onCancel = onConversationCancel,
+                    onRepeat = onConversationRepeat,
+                    onVoiceSelected = onConversationVoiceSelected,
+                    onRateChanged = onConversationRateChanged,
+                    onVolumeChanged = onConversationVolumeChanged,
+                )
+            }
             SectionTitle("Escolha como quer traduzir")
             AppMode.entries.forEach { mode ->
                 ModeCard(
@@ -93,7 +120,7 @@ fun EasyAppScreen(
             PreferencesCard(preferences.qualityMode, onQualitySelected)
             PrivacyNote()
             Text(
-                "No modo Tela, a captura consentida, o OCR e a tradução local já funcionam. O modo Conversa ainda aguarda integração de fala.",
+                "A conversa funciona por turnos e usa reconhecimento e vozes offline disponíveis no aparelho. Nenhum histórico de conversa é salvo.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Muted,
             )
@@ -110,7 +137,7 @@ fun EasyAppScreen(
                     if (mode == AppMode.SCREEN) {
                         "O Android pedirá autorização para compartilhar a tela nesta sessão. O EasyApp também precisa da permissão de sobreposição para mostrar a tradução. Você pode parar a sessão pelo app ou pela notificação."
                     } else {
-                        "O EasyApp pedirá acesso ao microfone para a sessão de conversa. O serviço mostra uma notificação persistente e pode ser parado a qualquer momento."
+                        "O EasyApp pedirá acesso ao microfone. A fala é processada pelo serviço offline do Android quando disponível; instale os pacotes de idioma offline. Transcrições e traduções ficam apenas na sessão e são apagadas ao parar."
                     },
                 )
             },
@@ -124,6 +151,96 @@ fun EasyAppScreen(
                 TextButton(onClick = { showPermissionExplanation = false }) { Text("Agora não") }
             },
         )
+    }
+}
+
+@Composable
+private fun ConversationCard(
+    state: ConversationSnapshot,
+    sourceLanguage: String,
+    enabled: Boolean,
+    onSpeakerSelected: (ConversationSpeaker) -> Unit,
+    onListen: () -> Unit,
+    onCancel: () -> Unit,
+    onRepeat: () -> Unit,
+    onVoiceSelected: (String) -> Unit,
+    onRateChanged: (Float) -> Unit,
+    onVolumeChanged: (Float) -> Unit,
+) {
+    var voiceMenuExpanded by remember { mutableStateOf(false) }
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(18.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            SectionTitle("Conversa por turnos")
+            Text("Quem está falando agora?", style = MaterialTheme.typography.bodySmall, color = Muted)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = state.speaker == ConversationSpeaker.USER_PORTUGUESE,
+                    onClick = { onSpeakerSelected(ConversationSpeaker.USER_PORTUGUESE) },
+                    enabled = enabled && !state.isListening,
+                    label = { Text("Eu · português") },
+                )
+                FilterChip(
+                    selected = state.speaker == ConversationSpeaker.INTERLOCUTOR,
+                    onClick = { onSpeakerSelected(ConversationSpeaker.INTERLOCUTOR) },
+                    enabled = enabled && !state.isListening,
+                    label = { Text("Interlocutor · ${if (sourceLanguage == "es") "espanhol" else "inglês"}") },
+                )
+            }
+            Text(state.status, style = MaterialTheme.typography.bodySmall, color = if (state.offlineSpeechAvailable) Green else Muted)
+            if (state.partialTranscript.isNotBlank() || state.finalTranscript.isNotBlank()) {
+                val speakerLabel = if (state.speaker == ConversationSpeaker.USER_PORTUGUESE) "Você" else "Interlocutor"
+                Text("${if (state.partialTranscript.isNotBlank()) "$speakerLabel · ao vivo" else "$speakerLabel disse"}: ${state.partialTranscript.ifBlank { state.finalTranscript }}", style = MaterialTheme.typography.bodyMedium, color = Ink)
+            }
+            if (state.translatedText.isNotBlank()) {
+                val outputLanguage = if (state.speaker == ConversationSpeaker.USER_PORTUGUESE) {
+                    if (sourceLanguage == "es") "espanhol" else "inglês"
+                } else "português"
+                Text("Tradução · $outputLanguage", style = MaterialTheme.typography.labelMedium, color = Green, fontWeight = FontWeight.Bold)
+                Text(state.translatedText, style = MaterialTheme.typography.titleMedium, color = Ink)
+            }
+            if (state.isListening) {
+                OutlinedButton(onClick = onCancel, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text("Parar escuta") }
+            } else {
+                Button(onClick = onListen, enabled = enabled && state.offlineSpeechAvailable, modifier = Modifier.fillMaxWidth()) {
+                    Text("Ouvir turno em ${if (state.speaker == ConversationSpeaker.USER_PORTUGUESE) "português" else if (sourceLanguage == "es") "espanhol" else "inglês"}")
+                }
+            }
+            OutlinedButton(
+                onClick = onRepeat,
+                enabled = enabled && state.repeatText.isNotBlank() && state.offlineTtsAvailable,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (state.isSpeaking) "Repetir tradução" else "Repetir áudio traduzido") }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Voz offline", style = MaterialTheme.typography.labelMedium, color = Ink)
+                    Text(
+                        state.availableVoices.firstOrNull { it.id == state.selectedVoiceId }?.label ?: "Nenhuma voz compatível instalada",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Muted,
+                    )
+                }
+                Box {
+                    TextButton(onClick = { voiceMenuExpanded = true }, enabled = enabled && state.availableVoices.isNotEmpty()) { Text("Escolher") }
+                    DropdownMenu(expanded = voiceMenuExpanded, onDismissRequest = { voiceMenuExpanded = false }) {
+                        state.availableVoices.forEach { voice ->
+                            DropdownMenuItem(
+                                text = { Text(voice.label) },
+                                onClick = { voiceMenuExpanded = false; onVoiceSelected(voice.id) },
+                            )
+                        }
+                    }
+                }
+            }
+            Text("Velocidade · ${"%.2f".format(state.speechRate)}×", style = MaterialTheme.typography.labelMedium, color = Ink)
+            Slider(value = state.speechRate, onValueChange = onRateChanged, valueRange = 0.65f..1.35f, steps = 6, enabled = enabled && state.offlineTtsAvailable)
+            Text("Volume · ${(state.volume * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = Ink)
+            Slider(value = state.volume, onValueChange = onVolumeChanged, valueRange = 0.1f..1f, steps = 8, enabled = enabled && state.offlineTtsAvailable)
+            Text("Reconhecimento e síntese: ${if (state.offlineSpeechAvailable) "offline" else "indisponíveis"} / ${if (state.offlineTtsAvailable) "voz offline disponível" else "sem voz offline compatível"}.", style = MaterialTheme.typography.bodySmall, color = Muted)
+        }
     }
 }
 

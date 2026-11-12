@@ -34,6 +34,7 @@ class SessionService : Service() {
     private var ending = false
     private var screenPipeline: ScreenTranslationPipeline? = null
     private var overlay: TranslationOverlayController? = null
+    private var conversationEngine: ConversationEngine? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -53,6 +54,7 @@ class SessionService : Service() {
             ACTION_START -> startSession(intent)
             ACTION_PAUSE -> {
                 screenPipeline?.pauseAndClear()
+                conversationEngine?.pause()
                 overlay?.show(emptyList(), "Sessão pausada")
                 SessionStateHolder.pause()
                 updateNotification()
@@ -60,9 +62,22 @@ class SessionService : Service() {
             ACTION_RESUME -> {
                 SessionStateHolder.resume()
                 screenPipeline?.resume()
+                if (currentMode == AppMode.CONVERSATION) {
+                    ConversationStateHolder.update { it.copy(status = "Conversa retomada. Escolha quem fala e inicie um turno.") }
+                }
                 overlay?.show(emptyList(), "Aguardando texto na tela…")
                 updateNotification()
             }
+            ACTION_CONVERSATION_LISTEN -> conversationEngine?.listenForTurn()
+            ACTION_CONVERSATION_CANCEL -> conversationEngine?.cancelTurn()
+            ACTION_CONVERSATION_SPEAKER -> intent.getStringExtra(EXTRA_CONVERSATION_SPEAKER)
+                ?.let { value -> ConversationSpeaker.entries.firstOrNull { it.name == value } }
+                ?.let { conversationEngine?.setSpeaker(it) }
+            ACTION_CONVERSATION_REPEAT -> conversationEngine?.repeatLastTranslation()
+            ACTION_CONVERSATION_VOICE -> intent.getStringExtra(EXTRA_CONVERSATION_VOICE)
+                ?.let { conversationEngine?.selectVoice(it) }
+            ACTION_CONVERSATION_RATE -> conversationEngine?.setSpeechRate(intent.getFloatExtra(EXTRA_CONVERSATION_VALUE, 1f))
+            ACTION_CONVERSATION_VOLUME -> conversationEngine?.setVolume(intent.getFloatExtra(EXTRA_CONVERSATION_VALUE, 1f))
             ACTION_STOP -> stopSession("Sessão encerrada pelo usuário")
             else -> stopSelf(startId)
         }
@@ -104,6 +119,7 @@ class SessionService : Service() {
 
             SessionStateHolder.start(mode)
             if (mode == AppMode.SCREEN) startScreenPipeline()
+            if (mode == AppMode.CONVERSATION) startConversationEngine()
             updateNotification()
         } catch (exception: SecurityException) {
             stopSession("O Android não autorizou o serviço desta sessão")
@@ -116,6 +132,8 @@ class SessionService : Service() {
         ending = true
         screenPipeline?.closeAndClear()
         screenPipeline = null
+        conversationEngine?.close()
+        conversationEngine = null
         overlay?.hide()
         overlay = null
         SessionStateHolder.stop(message)
@@ -143,7 +161,7 @@ class SessionService : Service() {
         val detail = when {
             paused -> "$modeLabel · toque para retomar"
             currentMode == AppMode.SCREEN -> "$modeLabel · OCR e tradução no aparelho"
-            else -> "$modeLabel · fluxo de voz será integrado na próxima fase"
+            else -> "$modeLabel · fala processada offline por turnos"
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -190,6 +208,8 @@ class SessionService : Service() {
     override fun onDestroy() {
         screenPipeline?.closeAndClear()
         screenPipeline = null
+        conversationEngine?.close()
+        conversationEngine = null
         overlay?.hide()
         overlay = null
         serviceScope.cancel()
@@ -247,6 +267,21 @@ class SessionService : Service() {
         }
     }
 
+    private fun startConversationEngine() {
+        conversationEngine?.close()
+        val engine = ConversationEngine(applicationContext) {
+            stopSession("A permissão do microfone foi revogada; a conversa foi encerrada.")
+        }
+        conversationEngine = engine
+        engine.initialize("en")
+        serviceScope.launch {
+            UserPreferencesRepository(applicationContext).preferences
+                .map { it.sourceLanguage }
+                .distinctUntilChanged()
+                .collect { language -> engine.setSourceLanguage(language) }
+        }
+    }
+
     private fun Intent.projectionResultData(): Intent? = if (Build.VERSION.SDK_INT >= 33) {
         getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
     } else {
@@ -259,6 +294,16 @@ class SessionService : Service() {
         const val ACTION_PAUSE = "com.easyapp.translator.session.PAUSE"
         const val ACTION_RESUME = "com.easyapp.translator.session.RESUME"
         const val ACTION_STOP = "com.easyapp.translator.session.STOP"
+        const val ACTION_CONVERSATION_LISTEN = "com.easyapp.translator.session.CONVERSATION_LISTEN"
+        const val ACTION_CONVERSATION_CANCEL = "com.easyapp.translator.session.CONVERSATION_CANCEL"
+        const val ACTION_CONVERSATION_SPEAKER = "com.easyapp.translator.session.CONVERSATION_SPEAKER"
+        const val ACTION_CONVERSATION_REPEAT = "com.easyapp.translator.session.CONVERSATION_REPEAT"
+        const val ACTION_CONVERSATION_VOICE = "com.easyapp.translator.session.CONVERSATION_VOICE"
+        const val ACTION_CONVERSATION_RATE = "com.easyapp.translator.session.CONVERSATION_RATE"
+        const val ACTION_CONVERSATION_VOLUME = "com.easyapp.translator.session.CONVERSATION_VOLUME"
+        const val EXTRA_CONVERSATION_SPEAKER = "conversation_speaker"
+        const val EXTRA_CONVERSATION_VOICE = "conversation_voice"
+        const val EXTRA_CONVERSATION_VALUE = "conversation_value"
         const val EXTRA_MODE = "session_mode"
         const val EXTRA_RESULT_CODE = "projection_result_code"
         const val EXTRA_RESULT_DATA = "projection_result_data"
@@ -273,6 +318,9 @@ class SessionService : Service() {
                 .putExtra(EXTRA_MODE, mode.name)
 
         fun controlIntent(context: Context, action: String): Intent =
+            Intent(context, SessionService::class.java).setAction(action)
+
+        fun conversationIntent(context: Context, action: String): Intent =
             Intent(context, SessionService::class.java).setAction(action)
     }
 }
