@@ -36,13 +36,21 @@ O status abaixo reflete os testes físicos reportados pela equipe. A validação
 - O time confirmou em aparelho físico a captura, o OCR e a tradução offline com ML Kit. A janela também foi confirmada como expandida e arrastável.
 - Legendas de áudio interno são opcionais e ficam desativadas por padrão; apps de origem podem bloquear a captura.
 
+### Tradução Refinada com Claude (opcional, ainda não validada em aparelho)
+
+- No modo **Qualidade**, com a chave de API do próprio usuário, as linhas da tela são traduzidas pelo **Claude Haiku 5.5** em lote, usando as linhas vizinhas como contexto (gírias, expressões e frases quebradas pelo OCR). Linhas traduzidas assim aparecem com **✦** na janela flutuante.
+- Tocar numa tradução da janela mostra **o que ela quer dizer**: sentido, tom e nota cultural, em até três frases.
+- Só texto sai do aparelho, nunca imagem nem áudio, e só depois de um aviso de consentimento. A chave fica criptografada pelo Android Keystore; **o app e este repositório não contêm chave nenhuma**.
+- Qualquer falha (sem internet, chave inválida, sem crédito) cai para a tradução offline do ML Kit sem interromper a sessão.
+- A tela da sessão mostra chamadas, tokens e custo estimado. Estimativa: **~US$ 0,10–0,15 por hora** de uso contínuo (detalhes na T042 de `specs/001-screen-translator-mvp/research.md`).
+
 ### Conversa Presencial por Voz (STT + TTS)
 
 - Conversa por turnos alternados: **Você** fala no idioma de destino (por exemplo, português) e o **Interlocutor** no idioma de origem (por exemplo, inglês).
-- O botão **Ouvir turno em…** verifica `RECORD_AUDIO`, mostra o estado da escuta e inicia o reconhecimento na Main Thread do Android.
+- O botão **Ouvir em…** verifica `RECORD_AUDIO`, mostra o estado da escuta e inicia o reconhecimento na Main Thread do Android.
 - Prioriza o `SpeechRecognizer` on-device quando disponível. Se o pacote offline falhar por idioma, rede ou serviço, tenta o reconhecedor padrão do Android e mostra o erro se a tentativa também falhar.
 - Mostra transcrição parcial/final e tradução; inicia a leitura automática com `TextToSpeech` quando há voz disponível.
-- Inclui botão **Repetir áudio traduzido**, seleção de voz offline, velocidade e volume.
+- Inclui botão **Repetir tradução em voz alta**, seleção de voz offline, velocidade e volume.
 - **Status físico:** o teste da equipe chegou à tela de conversa, identificou que a escuta não iniciava, e motivou a correção mais recente. Confirme o funcionamento da nova tentativa offline/fallback no APK atual antes de considerar esse fluxo validado novamente.
 
 ### Permissões e Serviço em Primeiro Plano
@@ -59,7 +67,8 @@ O status abaixo reflete os testes físicos reportados pela equipe. A validação
 │   └── app/src/main/java/com/easyapp/translator/
 │       ├── data/                    # Preferências locais (DataStore)
 │       ├── session/                 # Serviço, captura, OCR, tradução, voz e overlay
-│       └── ui/                      # Telas Compose e tema
+│       ├── translation/             # Claude (opcional): chave no Keystore e chamadas à API
+│       └── ui/                      # Telas Compose: theme/, components/ e home/ (ver docs/DESIGN.md)
 ├── specs/001-screen-translator-mvp/ # Spec, plano, pesquisa e tarefas do MVP
 ├── .specify/                       # Memória e configuração Spec-Kit
 ├── .github/workflows/              # Build Android no GitHub Actions
@@ -71,7 +80,7 @@ Os documentos de negócio (`.docx`, `.pdf` e `.pptx`) estão na raiz. O projeto 
 
 ## 4. Como Baixar e Instalar o APK pelo GitHub Actions
 
-Não é necessário compilar localmente. O workflow **Android debug APK** gera o APK em todo `push` para `main` e também pode ser iniciado manualmente.
+Não é necessário compilar localmente. O workflow **Android debug APK** gera o APK em todo `push`, em qualquer branch, e também pode ser iniciado manualmente.
 
 1. Acesse [Actions do repositório EasyApp Translator](https://github.com/equipe-easyapp-translator/easyapp-translator-mvp/actions).
 2. Abra uma execução concluída do workflow **Android debug APK**. Para iniciar uma execução, escolha o workflow e clique em **Run workflow**.
@@ -86,17 +95,18 @@ O workflow usa Ubuntu e JDK 17, executa `./gradlew assembleDebug` na pasta `andr
 ### Tradução de Tela
 
 1. Abra o EasyApp e selecione **Tradução de Tela e Apps**.
-2. Escolha os idiomas de origem e destino. O botão `⇄` inverte o par. Aguarde a primeira utilização baixar os modelos necessários, se ainda não estiverem no aparelho.
-3. Mantenha **Legendas de áudio interno** desligadas para usar somente OCR. Ative essa opção apenas se quiser tentar legendar áudio reproduzido por outros apps.
-4. Toque em **Iniciar sessão** e aceite o pedido do Android para sobrepor a outros apps e compartilhar a tela. Autorize as notificações quando solicitadas.
-5. Abra ou retorne ao app que contém o texto. O EasyApp apresenta a tradução na janela flutuante. Arraste pela barra superior, toque nela para recolher/expandir, ajuste o tamanho com `A-`/`A+`, ou use **PAUSAR** e **FECHAR**.
+2. Escolha os idiomas de origem e destino. O botão de setas inverte o par. Aguarde a primeira utilização baixar os modelos necessários, se ainda não estiverem no aparelho.
+3. Mantenha **Legendas do áudio de outros apps** desligadas para usar somente OCR. Ative essa opção apenas se quiser tentar legendar áudio reproduzido por outros apps.
+4. *(Opcional)* Para usar o Claude: escolha **Qualidade**, toque em **Adicionar minha chave** no cartão **Tradução refinada com Claude**, leia o aviso e cole uma chave criada em [console.anthropic.com](https://console.anthropic.com) → API Keys. O app faz um teste rápido e mostra **Funcionou** quando a chave está certa. Recomendado: defina um limite de gasto mensal no Console (Settings → Limits).
+5. Toque em **Iniciar tradução de tela** e aceite o pedido do Android para sobrepor a outros apps e compartilhar a tela. Autorize as notificações quando solicitadas.
+6. Abra ou retorne ao app que contém o texto. O EasyApp apresenta a tradução na janela flutuante. Arraste pela barra superior, toque nela para recolher/expandir, ajuste o tamanho com `A-`/`A+`, ou use **Pausar** e **Fechar**. Com o Claude ligado, toque numa tradução para ver o que ela quer dizer.
 
 ### Conversa Presencial por Voz
 
 1. Selecione **Conversa Presencial por Voz**, defina origem e destino e inicie a sessão. Conceda `RECORD_AUDIO` e notificações.
-2. Escolha quem vai falar: **Você · Português** para falar em português ou **Interlocutor · Inglês/Espanhol/etc.** para a outra pessoa falar no idioma de origem.
-3. Toque em **Ouvir turno em…** e fale depois que a tela indicar que está ouvindo. A transcrição e a tradução aparecem na tela; quando houver uma voz compatível, o EasyApp lê a tradução automaticamente.
-4. Passe o aparelho ao outro interlocutor e alterne a seleção do falante para o próximo turno. Use **Repetir áudio traduzido** quando quiser ouvir a última tradução outra vez.
+2. Escolha quem vai falar: **Você · Português** para falar em português ou **Outra pessoa · Inglês/Espanhol/etc.** para a outra pessoa falar no idioma de origem.
+3. Toque em **Ouvir em…** e fale depois que a tela indicar que está ouvindo. A transcrição e a tradução aparecem na tela; quando houver uma voz compatível, o EasyApp lê a tradução automaticamente.
+4. Passe o aparelho ao outro interlocutor e alterne a seleção do falante para o próximo turno. Use **Repetir tradução em voz alta** quando quiser ouvir a última tradução outra vez.
 5. Para uso offline, baixe os idiomas de reconhecimento de fala e as vozes de texto para fala nas configurações do serviço Android instalado. Os nomes dos menus variam por fabricante; procure por **Reconhecimento de fala** e **Texto para fala** em **Configurações > Sistema > Idiomas e entrada**.
 6. Se a fala offline não estiver disponível, o app tentará o serviço padrão de reconhecimento do Android. Esse serviço pode exigir internet; verifique as configurações de privacidade do provedor ativo.
 

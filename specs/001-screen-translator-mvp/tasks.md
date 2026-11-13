@@ -69,11 +69,11 @@
 ## Fase 8 — História P3: tradução refinada e explicação com Claude (opcional)
 
 - [x] T042 Escolher o provedor da rota remota (Claude Haiku 5.5), confirmar retenção e tarifa oficiais e estimar custo por operação e por hora em `research.md`.
-- [ ] T043 Adicionar o SDK Java oficial da Anthropic ao projeto Android e confirmar o build no CI.
-- [ ] T044 Guardar a chave do usuário cifrada pelo Android Keystore, com tela para colar, testar, mostrar só o final e apagar; excluir do backup.
-- [ ] T045 Mostrar o aviso de consentimento antes do primeiro uso (o que é enviado, retenção de 30 dias, sem treinamento por padrão) e permitir revogar.
-- [ ] T046 No modo Qualidade com chave e consentimento, traduzir pelo Claude só as linhas novas da tela, em lote, com intervalo mínimo entre chamadas, `max_tokens` baixo, esforço baixo e raciocínio desligado.
-- [ ] T047 Cair para o ML Kit em qualquer falha do Claude (rede, 401, 429, sem crédito, recusa) e mostrar o motivo sem encerrar a sessão.
-- [ ] T048 Indicar na sobreposição quando a tradução é online e implementar "O que isso quer dizer?" ao tocar numa linha.
-- [ ] T049 Somar tokens e custo estimado da sessão a partir do `usage` de cada resposta e mostrar no app; zerar ao encerrar.
-- [ ] T050 Validar no aparelho: com e sem chave, sem internet, chave inválida e comparação de qualidade com o ML Kit; registrar custo real da sessão (alimenta T038).
+- [x] T043 Adicionar o SDK Java oficial da Anthropic ao projeto Android e confirmar o build no CI. Build do CI aprovado em 2026-11-13 (run 43526597452).
+- [x] T044 Guardar a chave do usuário cifrada pelo Android Keystore, com tela para colar, testar, mostrar só o final e apagar; excluir do backup.
+- [x] T045 Mostrar o aviso de consentimento antes do primeiro uso (o que é enviado, retenção de 30 dias, sem treinamento por padrão) e permitir revogar.
+- [x] T046 No modo Qualidade com chave e consentimento, traduzir pelo Claude só as linhas novas da tela, em lote, com intervalo mínimo entre chamadas, `max_tokens` baixo, esforço baixo e raciocínio desligado.
+- [x] T047 Cair para o ML Kit em qualquer falha do Claude (rede, 401, 429, sem crédito, recusa) e mostrar o motivo sem encerrar a sessão.
+- [x] T048 Indicar na sobreposição quando a tradução é online e implementar "O que isso quer dizer?" ao tocar numa linha.
+- [x] T049 Somar tokens e custo estimado da sessão a partir do `usage` de cada resposta e mostrar no app; zerar ao encerrar.
+- [ ] T050 (T044–T049 estão implementadas e compilam, mas só contam como validadas depois deste teste.) Validar no aparelho: com e sem chave, sem internet, chave inválida e comparação de qualidade com o ML Kit; registrar custo real da sessão (alimenta T038).
