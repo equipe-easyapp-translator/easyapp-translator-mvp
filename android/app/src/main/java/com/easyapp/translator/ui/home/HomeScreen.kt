@@ -38,6 +38,7 @@ import com.easyapp.translator.session.ConversationSnapshot
 import com.easyapp.translator.session.ConversationSpeaker
 import com.easyapp.translator.session.SessionSnapshot
 import com.easyapp.translator.session.SessionStatus
+import com.easyapp.translator.translation.ClaudeUsage
 import com.easyapp.translator.ui.components.ButtonKind
 import com.easyapp.translator.ui.components.EasyButton
 import com.easyapp.translator.ui.components.InfoNote
@@ -82,6 +83,13 @@ fun HomeScreen(
     onConversationVolumeChanged: (Float) -> Unit,
     onClearAudioCaptions: () -> Unit,
     onScreenAudioCaptionsSelected: (Boolean) -> Unit,
+    claude: ClaudeUiState,
+    claudeUsage: ClaudeUsage,
+    onClaudeSaveKey: (String) -> Unit,
+    onClaudeConsentAccepted: () -> Unit,
+    onClaudeEnabledChanged: (Boolean) -> Unit,
+    onClaudeRemoveKey: () -> Unit,
+    onClaudeTest: () -> Unit,
 ) {
     var showStartExplanation by remember { mutableStateOf(false) }
     val colors = EasyTheme.colors
@@ -119,6 +127,15 @@ fun HomeScreen(
             if (preferences.preferredMode == AppMode.SCREEN) {
                 StepTitle(3, "Qualidade da leitura")
                 QualityCard(preferences.qualityMode, onQualitySelected)
+                ClaudeSetupCard(
+                    state = claude,
+                    qualitySelected = preferences.qualityMode == QualityMode.QUALITY,
+                    onSaveKey = onClaudeSaveKey,
+                    onConsentAccepted = onClaudeConsentAccepted,
+                    onEnabledChanged = onClaudeEnabledChanged,
+                    onRemoveKey = onClaudeRemoveKey,
+                    onTest = onClaudeTest,
+                )
             }
 
             PermissionsCard(
@@ -162,6 +179,7 @@ fun HomeScreen(
                         icon = R.drawable.ic_ui_smartphone,
                         tone = Tone.Positive,
                     )
+                    if (claude.usable) ClaudeUsageCard(claudeUsage)
                     if (screenAudioCaptionsSelected) {
                         AudioCaptionsCard(audioCaptions, session.status == SessionStatus.ACTIVE, onClearAudioCaptions)
                     }

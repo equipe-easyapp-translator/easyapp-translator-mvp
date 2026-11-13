@@ -10,7 +10,7 @@ Construir um único aplicativo Android EasyApp / ScreenTranslator com dois modos
 
 **Linguagem/versão**: Kotlin; versão a confirmar ao criar o projeto  
 **UI**: Jetpack Compose para o app; janela `TYPE_APPLICATION_OVERLAY` para a sobreposição
-**Dependências principais**: Android SDK; Google ML Kit Text Recognition e Translation no dispositivo; `SpeechRecognizer` local quando disponível; `TextToSpeech` e vozes instaladas; serviços remotos opcionais no modo Qualidade, após aprovação de credenciais e retenção
+**Dependências principais**: Android SDK; Google ML Kit Text Recognition e Translation no dispositivo; `SpeechRecognizer` local quando disponível; `TextToSpeech` e vozes instaladas; no modo Qualidade, tradução opcional pelo Claude Haiku 5.5 via SDK Java oficial da Anthropic, com a chave do próprio usuário (decisão T042 em `research.md`)
 **Armazenamento**: Preferências locais; áudio, quadros, transcrição e traduções da sessão somente em memória; itens salvos apenas por ação explícita
 **Testes**: Testes em aparelho Android físico e testes automatizados a definir com o projeto  
 **Plataforma**: API mínima 30 (Android 11+); target SDK a definir conforme requisito estável vigente na implementação
@@ -34,7 +34,7 @@ Construir um único aplicativo Android EasyApp / ScreenTranslator com dois modos
 3. Modo Conversa Presencial: permissão do microfone, turnos de fala EN↔PT-BR, SpeechRecognizer local quando disponível, tradução e saída TTS; adicionar ES e fallback de Qualidade após validação.
 4. Captura opcional de áudio de outros apps com AudioPlaybackCapture, STT e legendas somente em fontes compatíveis.
 5. Ciclo de vida, controles, seleção de vozes, degradação gradual e descarte de dados temporários nos dois modos.
-6. Modos Econômico/Equilibrado/Qualidade; a rota remota exige consentimento, política de retenção e gestão segura de credenciais.
+6. Modos Econômico/Equilibrado/Qualidade; a rota remota exige consentimento, política de retenção e gestão segura de credenciais. Implementada com o Claude Haiku 5.5 (Fase 8 de `tasks.md`): chave do usuário no Android Keystore, consentimento explícito, só texto enviado, fallback para o ML Kit e contador de custo.
 7. Avaliação de compatibilidade, privacidade, qualidade, latência, bateria, tráfego e custos nos aparelhos/cenários definidos em `research.md`.
 
 ## Estrutura de projeto proposta
@@ -54,6 +54,8 @@ android/
 
 **Decisão estrutural**: Um aplicativo Android nativo com modos independentes. Não criar backend até a comparação de provedores demonstrar necessidade; qualquer integração em nuvem deve ser encapsulada por interfaces e não pode expor credenciais permanentes no cliente.
 
+**Decisão de credenciais (2026-11-13)**: o app não traz chave nenhuma. Quem quiser o modo Qualidade com Claude cola a própria chave de API, criptografada no aparelho pelo Android Keystore. Isso evita backend no MVP e mantém o repositório público e os APKs do CI sem segredo. A tradução remota fica atrás de uma interface (`translation/`), então trocar para um backend que guarde a chave, se o app for distribuído, não muda o pipeline de tela.
+
 ## Dependências e riscos técnicos
 
 - A projeção de mídia exige consentimento por sessão e pode ser revogada; Android 14+ impõe token de uso único e declarações específicas de foreground service.
@@ -62,4 +64,5 @@ android/
 - Reconhecimento Android on-device depende de disponibilidade do serviço do aparelho; SpeechRecognizer padrão pode não ser local.
 - Serviços/modelos de OCR, tradução, reconhecimento de fala e síntese diferem em suporte linguístico, retenção e preço.
 - Avaliar impacto de bateria, latência e rede; estabelecer limites para chamadas repetidas.
+- Claude: latência de rede (o modo Qualidade pode ficar mais lento que o ML Kit), custo por token, chave revogada ou sem crédito e indisponibilidade do serviço. Todos caem para o ML Kit (FR-023).
 - Revisar documentação atual do Android e políticas de distribuição antes de publicação; este plano não é uma aprovação de loja.

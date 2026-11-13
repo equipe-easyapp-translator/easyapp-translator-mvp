@@ -19,11 +19,20 @@ import com.google.mlkit.nl.translate.TranslatorOptions
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.easyapp.translator.translation.ClaudeResult
+import com.easyapp.translator.translation.ClaudeTranslator
 import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 import java.util.Locale
 import java.util.Collections
 
-data class ScreenTranslation(val source: String, val translated: String, val speakerLabel: String? = null)
+/** [online]: traduzida pelo Claude (modo Qualidade); falso para ML Kit local. */
+data class ScreenTranslation(
+    val source: String,
+    val translated: String,
+    val speakerLabel: String? = null,
+    val online: Boolean = false,
+)
 
 /** Captures only the latest frame, performs on-device OCR/translation, and keeps results in memory. */
 class ScreenTranslationPipeline(
@@ -33,6 +42,8 @@ class ScreenTranslationPipeline(
     initialSourceLanguage: String = "en",
     initialTargetLanguage: String = "pt",
     private val onModelStatus: (String) -> Unit = {},
+    /** Presente só com chave e consentimento; usado apenas no modo Qualidade (FR-021). */
+    private val claude: ClaudeTranslator? = null,
     private val onResults: (List<ScreenTranslation>, String?) -> Unit,
 ) {
     private val worker = HandlerThread("easyapp-screen-capture").apply { start() }
@@ -61,6 +72,18 @@ class ScreenTranslationPipeline(
     private var modelError: String? = null
     @Volatile private var sourceLanguage = initialSourceLanguage
     @Volatile private var targetLanguage = initialTargetLanguage
+    @Volatile private var currentQuality = qualityMode
+
+    // Estado do Claude, sempre acessado na thread `handler` (exceto a chamada de rede, no executor).
+    private val claudeExecutor = Executors.newSingleThreadExecutor()
+    private val cloudKeys = mutableSetOf<String>()
+    private val claudeFailedKeys = mutableSetOf<String>()
+    private var claudeInFlight = false
+    private var claudeRetryScheduled = false
+    private var claudeDisabledForSession = false
+    private var claudeBackoffUntil = 0L
+    private var lastClaudeCallAt = 0L
+    private var claudeNotice: String? = null
 
     private val capturePoll = object : Runnable {
         override fun run() {
@@ -76,6 +99,9 @@ class ScreenTranslationPipeline(
         handler.post {
             frameIntervalMs = intervalFor(mode)
             lastAcceptedAt = 0L
+            currentQuality = mode
+            if (claudeUsable()) translateWithClaude(generation) else translateVisibleText(generation)
+            publish()
         }
     }
 
@@ -98,6 +124,7 @@ class ScreenTranslationPipeline(
             readyTranslatorKey = null
             preparingTranslatorKey = null
             modelError = null
+            clearClaudeState()
             onModelStatus("Preparando modelo offline: ${languageName(source)} → ${languageName(target)}…")
             prepareSelectedModel()
             publish(message = "Idiomas atualizados. Procurando texto em ${languageName(source)}…")
@@ -152,6 +179,7 @@ class ScreenTranslationPipeline(
         onResults(emptyList(), "Captura pausada")
         handler.post {
             handler.removeCallbacks(capturePoll)
+            clearClaudeState()
             lastAcceptedAt = 0L
             lastFrameHash = null
             reader?.setOnImageAvailableListener(null, null)
@@ -194,8 +222,10 @@ class ScreenTranslationPipeline(
             inFlightBitmaps.clear()
         }
         onResults(emptyList(), null)
+        claudeExecutor.shutdownNow()
         handler.post {
             handler.removeCallbacks(capturePoll)
+            clearClaudeState()
             reader?.setOnImageAvailableListener(null, null)
             virtualDisplay?.setSurface(null)
             virtualDisplay?.release()
@@ -291,6 +321,8 @@ class ScreenTranslationPipeline(
         translatedCache.keys.retainAll(keys)
         originalLines.keys.retainAll(keys)
         pendingKeys.retainAll(keys)
+        cloudKeys.retainAll(keys)
+        claudeFailedKeys.retainAll(keys)
         lines.forEach { line ->
             val key = normalize(line)
             originalLines[key] = line
@@ -298,10 +330,107 @@ class ScreenTranslationPipeline(
         }
         lastSource = lines.joinToString("\n")
         if (lines.isNotEmpty()) {
+            if (claudeUsable()) translateWithClaude(frameGeneration)
+            // O ML Kit continua preparado como reserva e traduz o que o Claude não cobrir.
             if (readyTranslatorKey == selectedTranslatorKey()) translateVisibleText(frameGeneration)
             else if (modelError == null) prepareSelectedModel()
         }
         publish()
+    }
+
+    /** Claude só no modo Qualidade, com chave válida e fora de uma pausa após falha (FR-021, FR-023). */
+    private fun claudeUsable(): Boolean =
+        claude != null &&
+            currentQuality == "QUALITY" &&
+            !claudeDisabledForSession &&
+            System.currentTimeMillis() >= claudeBackoffUntil &&
+            sourceLanguage != targetLanguage
+
+    /**
+     * Envia ao Claude, num único pedido, as linhas visíveis ainda sem tradução.
+     * Uma chamada por vez e no máximo uma a cada [CLAUDE_MIN_INTERVAL_MS], para o
+     * custo não crescer com a frequência de leitura da tela (NFR-006).
+     */
+    private fun translateWithClaude(frameGeneration: Int) {
+        val translator = claude ?: return
+        if (closed || paused || frameGeneration != generation || claudeInFlight || !claudeUsable()) return
+        val pending = visibleKeys.filter { it !in translatedCache && it !in pendingKeys && it !in claudeFailedKeys }
+        if (pending.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val wait = lastClaudeCallAt + CLAUDE_MIN_INTERVAL_MS - now
+        if (wait > 0) {
+            if (!claudeRetryScheduled) {
+                claudeRetryScheduled = true
+                handler.postDelayed({
+                    claudeRetryScheduled = false
+                    translateWithClaude(generation)
+                }, wait)
+            }
+            return
+        }
+        val batchKeys = pending.take(CLAUDE_MAX_LINES)
+        val batchLines = batchKeys.map { originalLines[it] ?: it }
+        val source = sourceLanguage
+        val target = targetLanguage
+        claudeInFlight = true
+        lastClaudeCallAt = now
+        pendingKeys += batchKeys
+        publish()
+        try {
+            claudeExecutor.execute {
+                val result = translator.translateLines(batchLines, source, target)
+                handler.post { onClaudeResult(result, batchKeys, frameGeneration) }
+            }
+        } catch (_: RuntimeException) {
+            claudeInFlight = false
+            pendingKeys.removeAll(batchKeys.toSet())
+        }
+    }
+
+    private fun onClaudeResult(result: ClaudeResult<List<String?>>, batchKeys: List<String>, frameGeneration: Int) {
+        claudeInFlight = false
+        pendingKeys.removeAll(batchKeys.toSet())
+        if (closed || paused || frameGeneration != generation) return
+        when (result) {
+            is ClaudeResult.Ok -> {
+                result.value.forEachIndexed { index, translated ->
+                    val key = batchKeys[index]
+                    if (translated != null) {
+                        if (key in visibleKeys) {
+                            translatedCache[key] = translated
+                            cloudKeys += key
+                        }
+                    } else {
+                        claudeFailedKeys += key
+                    }
+                }
+                claudeNotice = null
+            }
+            is ClaudeResult.Failed -> {
+                claudeFailedKeys += batchKeys
+                if (result.permanent) {
+                    claudeDisabledForSession = true
+                    claudeNotice = "Claude desativado nesta sessão: ${result.reason}. Usando tradução offline."
+                } else {
+                    claudeBackoffUntil = System.currentTimeMillis() + CLAUDE_BACKOFF_MS
+                    claudeNotice = "Claude indisponível (${result.reason}). Usando tradução offline por enquanto."
+                }
+            }
+        }
+        // Linhas que o Claude não cobriu caem para o ML Kit.
+        if (readyTranslatorKey == selectedTranslatorKey()) translateVisibleText(frameGeneration)
+        else if (modelError == null) prepareSelectedModel()
+        translateWithClaude(frameGeneration)
+        publish()
+    }
+
+    private fun clearClaudeState() {
+        cloudKeys.clear()
+        claudeFailedKeys.clear()
+        claudeInFlight = false
+        claudeRetryScheduled = false
+        claudeBackoffUntil = 0L
+        claudeNotice = null
     }
 
     private fun selectedTranslatorKey(): String? {
@@ -377,8 +506,11 @@ class ScreenTranslationPipeline(
         if (readyTranslatorKey != translatorKey) return
         modelError = null
         val translator = translators[translatorKey]
+        val claudeHandles = claudeUsable()
         for (key in visibleKeys.toList()) {
             if (key in translatedCache || key in pendingKeys) continue
+            // Com o Claude ativo, o ML Kit só traduz o que o Claude não devolveu.
+            if (claudeHandles && key !in claudeFailedKeys) continue
             val sourceText = originalLines[key] ?: continue
             if (sourceCode == targetCode) {
                 translatedCache[key] = sourceText
@@ -430,10 +562,12 @@ class ScreenTranslationPipeline(
             return
         }
         val results = visibleKeys.map { key ->
-            ScreenTranslation(originalLines[key] ?: key, translatedCache[key].orEmpty())
+            ScreenTranslation(originalLines[key] ?: key, translatedCache[key].orEmpty(), online = key in cloudKeys)
         }
         val hasUntranslatedText = visibleKeys.any { it !in translatedCache }
         onResults(results, message ?: when {
+            claudeInFlight && hasUntranslatedText -> "Traduzindo com o Claude…"
+            claudeNotice != null -> claudeNotice
             modelError != null -> modelError
             results.isEmpty() -> "Nenhum texto detectado na tela"
             hasUntranslatedText && readyTranslatorKey != selectedTranslatorKey() -> "Preparando modelo local para ${languageName(sourceLanguage)} → ${languageName(targetLanguage)}…"
@@ -486,5 +620,8 @@ class ScreenTranslationPipeline(
 
     companion object {
         private const val CAPTURE_POLL_INTERVAL_MS = 1_300L
+        private const val CLAUDE_MIN_INTERVAL_MS = 2_500L
+        private const val CLAUDE_BACKOFF_MS = 30_000L
+        private const val CLAUDE_MAX_LINES = 18
     }
 }

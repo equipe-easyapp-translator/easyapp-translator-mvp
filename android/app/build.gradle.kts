@@ -19,6 +19,20 @@ android {
         compose = true
     }
 
+    packaging {
+        resources {
+            // Metadados duplicados entre os jars do SDK da Anthropic (Jackson, OkHttp, Kotlin).
+            excludes += setOf(
+                "META-INF/DEPENDENCIES",
+                "META-INF/INDEX.LIST",
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "META-INF/*.md",
+                "META-INF/versions/**",
+            )
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -48,4 +62,7 @@ dependencies {
     implementation(libs.mlkit.text.recognition)
     implementation(libs.mlkit.translation)
     implementation(libs.mlkit.language.id)
+
+    // Tradução refinada opcional (modo Qualidade). Ver specs/001-screen-translator-mvp/research.md, T042.
+    implementation(libs.anthropic.java)
 }

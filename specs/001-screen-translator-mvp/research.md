@@ -1,6 +1,6 @@
 # Pesquisa técnica e decisões de escopo — EasyApp / ScreenTranslator
 
-**Status**: Fase 1 (T001–T005) documentada. As escolhas técnicas e os custos abaixo são uma base para prototipagem, não resultados de testes em aparelho nem cotação contratual.
+**Status**: Fase 1 (T001–T005) documentada; T042 (provedor remoto: Claude Haiku 5.5) adicionada em 2026-11-13. As escolhas técnicas e os custos abaixo são uma base para prototipagem, não resultados de testes em aparelho nem cotação contratual.
 
 ## Decisão T001 — escopo unificado
 
@@ -67,11 +67,35 @@ No caminho estritamente local (ML Kit + recognizer on-device disponível + TTS l
 
 **Critérios de medição**: manter os objetivos de spec de ≥90% dos segmentos essenciais corretos e p90 ≤2 s em condições favoráveis como hipóteses a medir; registrar taxa de transcrição compreensível e correções por idioma, falhas por permissão/origem, consumo de bateria/dados e custo estimado. Definir amostra/roteiro e calcular métricas antes de declarar sucesso; nenhum resultado de aparelho foi obtido nesta fase.
 
+## T042 — provedor da rota remota: Claude Haiku 5.5 (decisão de 2026-11-13)
+
+**Decisão**: a tradução remota do modo Qualidade e o recurso "O que isso quer dizer?" usam o **Claude Haiku 5.5** (`claude-haiku-5-5`), da Anthropic. Transcrição (STT) e síntese (TTS) continuam locais, então só texto vai para a nuvem. O Claude não é usado na conversa por voz nesta versão.
+
+**Por que um modelo de linguagem, e não um tradutor de máquina**: o ML Kit traduz linha por linha, sem contexto. Um modelo de linguagem recebe as linhas da tela juntas, junta frases que o OCR quebrou, entende gíria e expressões e consegue explicar o sentido, o que atende diretamente ao storyboard ("IA para entender as gírias regionais") e ao pedido do E3 por mais confiabilidade. Escolheu-se o Haiku, o modelo mais barato e rápido da família, pela restrição de orçamento da equipe.
+
+**Credenciais (sem backend)**: cada pessoa cola a própria chave de API no app; ela é criptografada pelo Android Keystore. O app e o repositório não contêm chave nenhuma, o que cumpre o `plan.md` ("não pode expor credenciais permanentes no cliente") e o `quickstart.md` ("não incluir chaves no app ou no Git"). Um backend próprio só será considerado se o app for distribuído a quem não tem chave. Recomendação fixa para quem usa: definir um limite de gasto mensal no Console da Anthropic.
+
+**Retenção e treinamento** (NFR-005): para usuários da API, a Anthropic apaga entradas e saídas do backend em até 30 dias, com exceções para acordos de retenção zero, aplicação da Política de Uso (conteúdo sinalizado pode ser guardado por até 2 anos) e obrigação legal. Por padrão, a Anthropic não treina modelos com entradas ou saídas de produtos comerciais, o que inclui a API. O aviso de consentimento do app deve dizer isso de forma simples.
+
+**Tarifa oficial** (Haiku 5.5, prompts de até 100 mil tokens): US$ 0,10 por milhão de tokens de entrada e US$ 0,50 por milhão de tokens de saída. O raciocínio estendido é cobrado como saída, então o app o desliga.
+
+**Estimativa por operação** (premissas: tela típica com até 18 linhas; português e italiano usam um pouco mais de tokens que inglês):
+
+| Operação | Tokens (entrada / saída) | Custo estimado |
+|---|---:|---:|
+| Tela cheia (~18 linhas) | ~500 / ~400 | US$ 0,00025 |
+| Só linhas novas (legenda que mudou) | ~120 / ~60 | US$ 0,00004 |
+| "O que isso quer dizer?" (um toque) | ~300 / ~250 | US$ 0,00016 |
+
+**Por duração**, uso contínuo do modo Qualidade com telas mudando com frequência: **~US$ 0,002/min, ~US$ 0,02 em 10 min e ~US$ 0,10–0,15 por hora**. US$ 5 de crédito cobrem algo entre 35 e 50 horas, ou cerca de 20 mil telas cheias. Comparada à rota remota da T004, que tinha STT como maior item de custo, esta fica mais barata porque o áudio nunca sai do aparelho.
+
+**Controles de custo implementados**: só linhas ainda não traduzidas na sessão vão para o Claude (cache em memória); intervalo mínimo entre chamadas; teto de `max_tokens` por resposta; esforço baixo; raciocínio desligado; Claude só no modo Qualidade ou por toque explícito; contador de tokens e custo da sessão a partir do `usage` devolvido pela API. Os valores reais devem ser medidos na T038.
+
 ## Pendências que permanecem após a Fase 1
 
 - Confirmar disponibilidade do aparelho proposto e comparar pelo menos um fabricante adicional.
 - Testar qualidade dos modelos locais em PT-BR, EN e ES, incluindo variação regional/ruído, e documentar a disponibilidade de vozes.
-- Verificar políticas de retenção, termos de uso, autorização, credenciais e custos reais dos fornecedores antes de ativar modo Qualidade.
+- Verificar políticas de retenção, termos de uso, autorização, credenciais e custos reais dos fornecedores antes de ativar modo Qualidade. *Feito para a Anthropic na T042; a medição do custo real continua na T038.*
 - Provar captura de áudio interno em apps de origem selecionados. A matriz legal/técnica não é garantia de funcionamento universal.
 - Executar os cenários e medições do T005; as estimativas de preço não substituem medição de latência, bateria, tráfego ou qualidade.
 
@@ -91,3 +115,6 @@ No caminho estritamente local (ML Kit + recognizer on-device disponível + TTS l
 - [Cloud Speech-to-Text pricing](https://cloud.google.com/speech-to-text/pricing)
 - [Cloud Translation pricing](https://cloud.google.com/products/translate/pricing)
 - [Cloud Text-to-Speech pricing](https://cloud.google.com/text-to-speech/pricing)
+- [Claude — Pricing](https://platform.claude.com/docs/en/about-claude/pricing) (consultado em 2026-11-13)
+- [Anthropic Privacy — How long do you store my organization's data?](https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data) (consultado em 2026-11-13)
+- [Anthropic Privacy — Is my data used for model training?](https://privacy.claude.com/en/articles/7996868-is-my-data-used-for-model-training) (consultado em 2026-11-13)

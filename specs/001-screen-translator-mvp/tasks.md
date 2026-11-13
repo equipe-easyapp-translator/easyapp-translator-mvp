@@ -65,3 +65,15 @@
 - [ ] T039 Medir consumo de bateria e dados em sessões curtas e longas.
 - [ ] T040 Registrar compatibilidade observada por aplicativo e dispositivo, incluindo limitações de DRM/captura.
 - [ ] T041 Atualizar política de privacidade, explicações de permissões e limitações antes de qualquer distribuição externa.
+
+## Fase 8 — História P3: tradução refinada e explicação com Claude (opcional)
+
+- [x] T042 Escolher o provedor da rota remota (Claude Haiku 5.5), confirmar retenção e tarifa oficiais e estimar custo por operação e por hora em `research.md`.
+- [ ] T043 Adicionar o SDK Java oficial da Anthropic ao projeto Android e confirmar o build no CI.
+- [ ] T044 Guardar a chave do usuário cifrada pelo Android Keystore, com tela para colar, testar, mostrar só o final e apagar; excluir do backup.
+- [ ] T045 Mostrar o aviso de consentimento antes do primeiro uso (o que é enviado, retenção de 30 dias, sem treinamento por padrão) e permitir revogar.
+- [ ] T046 No modo Qualidade com chave e consentimento, traduzir pelo Claude só as linhas novas da tela, em lote, com intervalo mínimo entre chamadas, `max_tokens` baixo, esforço baixo e raciocínio desligado.
+- [ ] T047 Cair para o ML Kit em qualquer falha do Claude (rede, 401, 429, sem crédito, recusa) e mostrar o motivo sem encerrar a sessão.
+- [ ] T048 Indicar na sobreposição quando a tradução é online e implementar "O que isso quer dizer?" ao tocar numa linha.
+- [ ] T049 Somar tokens e custo estimado da sessão a partir do `usage` de cada resposta e mostrar no app; zerar ao encerrar.
+- [ ] T050 Validar no aparelho: com e sem chave, sem internet, chave inválida e comparação de qualidade com o ML Kit; registrar custo real da sessão (alimenta T038).

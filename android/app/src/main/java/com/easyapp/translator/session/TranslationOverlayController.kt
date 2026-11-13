@@ -21,6 +21,8 @@ class TranslationOverlayController(
     private val windowManager: WindowManager,
     private val onPauseOrResume: () -> Unit,
     private val onStop: () -> Unit,
+    /** "O que isso quer dizer?" (FR-022); nulo quando o Claude não está configurado. */
+    private val onExplain: ((ScreenTranslation) -> Unit)? = null,
 ) {
     private val density = context.resources.displayMetrics.density
     private val root = LinearLayout(context).apply {
@@ -50,6 +52,23 @@ class TranslationOverlayController(
     }
     private val translationScroll = ScrollView(context)
     private val translations = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+    private val tapHint = TextView(context).apply {
+        text = "Toque numa tradução para entender o que ela quer dizer"
+        setTextColor(MUTED_ON_INK)
+        textSize = 11f
+        setPadding(0, dp(4), 0, 0)
+        visibility = View.GONE
+    }
+    private val explanation = TextView(context).apply {
+        setTextColor(TEXT_ON_INK)
+        textSize = 13f
+        setPadding(dp(10), dp(8), dp(10), dp(8))
+        background = rounded(0xFF0E6B4D.toInt(), 10f)
+        visibility = View.GONE
+        contentDescription = "Explicação do Claude; toque para fechar"
+        setOnClickListener { hideExplanation() }
+    }
+    private var explainedSource: String? = null
     private val controls = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
@@ -83,6 +102,11 @@ class TranslationOverlayController(
             translationScroll,
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT),
         )
+        translationBand.addView(
+            explanation,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) },
+        )
+        translationBand.addView(tapHint)
         controls.addView(actionButton("A-") { setFontSize(fontSize - 1f) }, LinearLayout.LayoutParams(0, dp(38), 1f))
         controls.addView(actionButton("A+") { setFontSize(fontSize + 1f) }, LinearLayout.LayoutParams(0, dp(38), 1f))
         controls.addView(pauseButton, LinearLayout.LayoutParams(0, dp(38), 1f))
@@ -129,10 +153,13 @@ class TranslationOverlayController(
                 return
             }
         }
-        status.text = message ?: "EasyApp · tradução ao vivo"
+        val online = results.any { it.online }
+        status.text = message ?: if (online) "EasyApp · tradução com Claude ✦" else "EasyApp · tradução ao vivo"
         pauseButton.text = if (message?.contains("pausad", ignoreCase = true) == true) "Retomar" else "Pausar"
         hasResults = results.isNotEmpty()
         translationBand.visibility = if (!collapsed && hasResults) View.VISIBLE else View.GONE
+        if (explainedSource != null && results.none { it.source == explainedSource }) hideExplanation()
+        tapHint.visibility = if (onExplain != null && hasResults && explanation.visibility != View.VISIBLE) View.VISIBLE else View.GONE
         translations.removeAllViews()
         results.take(8).forEach { item ->
             item.speakerLabel?.let { speaker ->
@@ -144,14 +171,38 @@ class TranslationOverlayController(
                 })
             }
             val label = TextView(context).apply {
-                text = item.translated.ifBlank { item.source }
+                text = if (item.online) "✦ ${item.translated}" else item.translated.ifBlank { item.source }
                 setTextColor(TEXT_ON_INK)
                 textSize = fontSize
                 setPadding(0, dp(3), 0, dp(3))
-                contentDescription = "Tradução de: ${item.source}"
+                contentDescription = buildString {
+                    append("Tradução de: ${item.source}")
+                    if (item.online) append(", feita pelo Claude")
+                    if (onExplain != null && item.translated.isNotBlank()) append(". Toque para explicar")
+                }
+                val explain = onExplain
+                if (explain != null && item.translated.isNotBlank()) {
+                    isClickable = true
+                    setOnClickListener { explain(item) }
+                }
             }
             translations.addView(label)
         }
+    }
+
+    /** Mostra a explicação (ou "carregando") abaixo das traduções, para a linha [source]. */
+    fun showExplanation(source: String, text: String) {
+        if (!attached) return
+        explainedSource = source
+        explanation.text = text
+        explanation.visibility = View.VISIBLE
+        tapHint.visibility = View.GONE
+    }
+
+    private fun hideExplanation() {
+        explainedSource = null
+        explanation.visibility = View.GONE
+        if (onExplain != null && hasResults) tapHint.visibility = View.VISIBLE
     }
 
     fun hide() {
@@ -257,6 +308,7 @@ class TranslationOverlayController(
     private companion object {
         val TEXT_ON_INK = 0xFFF4F1EA.toInt()
         val BRAND_ON_INK = 0xFF4EC294.toInt()
+        val MUTED_ON_INK = 0xFF8E9186.toInt()
     }
 
     private fun overlayWidth(): Int = dp(380).coerceAtMost(

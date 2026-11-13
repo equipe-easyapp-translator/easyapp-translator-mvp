@@ -39,6 +39,20 @@ Os dados de conteúdo são efêmeros por padrão. Não persistir capturas ou áu
 ### UserPreferences
 
 - Idiomas habilitados, modo de qualidade padrão, voz PT-BR escolhida e preferências visuais da sobreposição.
+- `claudeConsentAccepted`: se o usuário aceitou o aviso de envio de texto ao Claude.
+
+### ClaudeCredential
+
+- Chave de API do próprio usuário, cifrada com AES-GCM por uma chave do Android Keystore (que não sai do hardware). Só o texto cifrado e o IV ficam em armazenamento local.
+- A interface mostra apenas o final da chave (ex.: `…a1B2`). Apagar remove o texto cifrado.
+- Nunca vai para logs, backup do Android nem para o repositório.
+
+### SessionUsage
+
+- `inputTokens`, `outputTokens`, `requests`, `estimatedCostUsd`.
+- Somente em memória; zerado ao encerrar a sessão. Lido do `usage` de cada resposta da API.
+
+`TranslationResult.providerMode` passa a ser `local` (ML Kit) ou `cloud` (Claude).
 
 ## Regras de ciclo de vida
 

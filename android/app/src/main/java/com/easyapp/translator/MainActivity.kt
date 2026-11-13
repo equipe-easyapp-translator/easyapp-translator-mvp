@@ -27,10 +27,17 @@ import com.easyapp.translator.session.ConversationSpeaker
 import com.easyapp.translator.session.ConversationStateHolder
 import com.easyapp.translator.session.SessionService
 import com.easyapp.translator.session.SessionStateHolder
+import com.easyapp.translator.translation.ClaudeKeyStore
+import com.easyapp.translator.translation.ClaudeResult
+import com.easyapp.translator.translation.ClaudeTranslator
+import com.easyapp.translator.translation.ClaudeUsageHolder
+import com.easyapp.translator.ui.home.ClaudeUiState
 import com.easyapp.translator.ui.home.HomeScreen
 import com.easyapp.translator.ui.theme.EasyAppTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class PermissionUiState(
     val recordAudioGranted: Boolean = false,
@@ -47,6 +54,8 @@ class MainActivity : ComponentActivity() {
     private var screenAudioCaptionsSelected by mutableStateOf(false)
     private var permissionUiState by mutableStateOf(PermissionUiState())
     private var showPrivacyNotice by mutableStateOf(false)
+    private val claudeKeyStore by lazy { ClaudeKeyStore(applicationContext) }
+    private var claudeUiState by mutableStateOf(ClaudeUiState())
 
     private val runtimePermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -88,6 +97,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         refreshPermissionState()
+        refreshClaudeState()
         showPrivacyNotice = !getSharedPreferences(PRIVACY_PREFS, MODE_PRIVATE)
             .getBoolean(PRIVACY_NOTICE_ACCEPTED, false)
         lifecycleScope.launch {
@@ -102,6 +112,7 @@ class MainActivity : ComponentActivity() {
             val session by SessionStateHolder.snapshot.collectAsState()
             val conversation by ConversationStateHolder.state.collectAsState()
             val audioCaptions by AudioCaptionStateHolder.state.collectAsState()
+            val claudeUsage by ClaudeUsageHolder.usage.collectAsState()
 
             EasyAppTheme {
                 HomeScreen(
@@ -144,6 +155,22 @@ class MainActivity : ComponentActivity() {
                     onConversationVolumeChanged = { volume -> sendConversationFloat(SessionService.ACTION_CONVERSATION_VOLUME, volume) },
                     onClearAudioCaptions = { sendSessionAction(SessionService.ACTION_CLEAR_AUDIO_HISTORY) },
                     onScreenAudioCaptionsSelected = { selected -> screenAudioCaptionsSelected = selected },
+                    claude = claudeUiState,
+                    claudeUsage = claudeUsage,
+                    onClaudeSaveKey = ::saveClaudeKey,
+                    onClaudeConsentAccepted = {
+                        claudeKeyStore.consentAccepted = true
+                        refreshClaudeState()
+                    },
+                    onClaudeEnabledChanged = { enabled ->
+                        claudeKeyStore.enabled = enabled
+                        refreshClaudeState()
+                    },
+                    onClaudeRemoveKey = {
+                        claudeKeyStore.clear()
+                        refreshClaudeState()
+                    },
+                    onClaudeTest = ::testClaude,
                 )
             }
         }
@@ -265,6 +292,53 @@ class MainActivity : ComponentActivity() {
         )
         runCatching { startActivity(settingsIntent) }
             .onFailure { SessionStateHolder.stop("Não foi possível abrir as permissões de sobreposição") }
+    }
+
+    private fun refreshClaudeState(testing: Boolean = false, testMessage: String? = null) {
+        claudeUiState = ClaudeUiState(
+            hasKey = claudeKeyStore.hasKey,
+            keyHint = claudeKeyStore.hint,
+            consentAccepted = claudeKeyStore.consentAccepted,
+            enabled = claudeKeyStore.enabled,
+            testing = testing,
+            testMessage = testMessage,
+        )
+    }
+
+    private fun saveClaudeKey(key: String) {
+        val saved = runCatching { claudeKeyStore.save(key) }.isSuccess
+        refreshClaudeState(testMessage = if (saved) null else "Não foi possível guardar a chave neste aparelho.")
+        if (saved) testClaude()
+    }
+
+    /** Uma tradução mínima ("Hello!") para confirmar a chave; custa uma fração de centavo. */
+    private fun testClaude() {
+        val key = claudeKeyStore.load()
+        if (key == null) {
+            refreshClaudeState(testMessage = "Não foi possível ler a chave salva. Remova e adicione de novo.")
+            return
+        }
+        refreshClaudeState(testing = true)
+        lifecycleScope.launch {
+            val message = withContext(Dispatchers.IO) {
+                runCatching {
+                    val translator = ClaudeTranslator(key)
+                    try {
+                        when (val result = translator.translateLines(listOf("Hello!"), "en", "pt")) {
+                            is ClaudeResult.Ok -> "Funcionou: “${result.value.firstOrNull() ?: "?"}”."
+                            is ClaudeResult.Failed -> "Não funcionou: ${result.reason}."
+                        }
+                    } finally {
+                        translator.close()
+                    }
+                }.getOrElse { "Não funcionou: o cliente do Claude não iniciou neste aparelho." }
+            }
+            if (SessionStateHolder.snapshot.value.status == com.easyapp.translator.session.SessionStatus.IDLE) {
+                // O teste não conta como gasto de uma sessão.
+                ClaudeUsageHolder.reset()
+            }
+            refreshClaudeState(testMessage = message)
+        }
     }
 
     private fun hasPermission(permission: String): Boolean =

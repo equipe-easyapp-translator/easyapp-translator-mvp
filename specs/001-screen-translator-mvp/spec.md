@@ -2,6 +2,7 @@
 
 **Feature Branch**: `001-screen-translator-mvp`  
 **Criado**: 2026-11-06  
+**Atualizado**: 2026-11-13 — História 6 (tradução refinada e explicação com Claude, opcional)  
 **Status**: Rascunho para validação  
 **Entrada**: Estruturar o MVP Android EasyApp / ScreenTranslator, unificando tradução de tela/apps e conversa presencial por voz.
 
@@ -79,6 +80,23 @@ Como usuário, quero escolher entre Econômico, Equilibrado e Qualidade e manter
 1. **Dado** que a tradução está ativa, **quando** o usuário seleciona um modo, **então** o app atualiza sua estratégia de processamento e apresenta o modo escolhido.
 2. **Dado** que a rede fica indisponível, **quando** houver capacidades locais compatíveis, **então** o app continua essas capacidades e sinaliza quais funções em nuvem estão indisponíveis.
 
+### História 6 — Tradução refinada e explicação com Claude (P3, opcional)
+
+Como usuário que precisa de uma tradução mais confiável que a tradução linha a linha, quero que o modo Qualidade use um modelo de linguagem (Claude Haiku 5.5) para traduzir o texto da tela com contexto e quero tocar numa tradução para entender o que ela quer dizer, para compreender gírias, expressões e frases quebradas pelo OCR.
+
+**Base de produto**: o storyboard da equipe já propõe "transcrição e tradução com IA" e "IA para entender as gírias regionais"; o E3 pediu tradução "com mais confiabilidade que o Google Tradutor". A melhora real de qualidade é hipótese a medir (T038).
+
+**Teste independente**: Com uma chave de API configurada e o consentimento dado, iniciar o modo Tela em Qualidade sobre um texto com expressão idiomática, comparar com a tradução local e tocar na linha para ver a explicação. Repetir sem internet e confirmar a volta automática à tradução local.
+
+**Cenários de aceitação**:
+
+1. **Dado** que o usuário não configurou uma chave, **quando** usar qualquer modo, **então** o app funciona como antes, só com processamento local, e nenhum texto sai do aparelho.
+2. **Dado** que o usuário cola a própria chave e aceita o aviso sobre envio de texto, **quando** iniciar o modo Tela em Qualidade, **então** as linhas novas reconhecidas são traduzidas pelo Claude, e a sobreposição indica que a tradução é online.
+3. **Dado** que a chamada ao Claude falha (sem rede, chave inválida, limite de gasto ou de taxa atingido), **quando** houver texto a traduzir, **então** o app usa a tradução local do ML Kit para essas linhas e informa o motivo, sem interromper a sessão.
+4. **Dado** que há uma tradução na sobreposição, **quando** o usuário toca nela, **então** o app pede uma explicação curta (sentido, tom, expressão) e a mostra junto da linha; o pedido só acontece por esse toque.
+5. **Dado** que a sessão usa o Claude, **quando** o usuário abre o app, **então** vê os tokens usados e o custo estimado da sessão em US$.
+6. **Dado** que o usuário remove a chave, **quando** confirmar, **então** a chave é apagada do aparelho e o app volta ao processamento só local.
+
 ## Limites do MVP
 
 Inclui um app Android EasyApp / ScreenTranslator com dois modos: (1) tela/apps, com OCR, detecção de mudanças, tradução em sobreposição e legendas de áudio de reprodução quando capturável; (2) conversa presencial por voz, com microfone, transcrição, tradução bidirecional PT-BR↔EN/ES e síntese de fala. Inclui modos de processamento, histórico efêmero e opção explícita para salvar uma tradução selecionada.
@@ -105,6 +123,12 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - **FR-016**: O sistema DEVE oferecer dois modos claramente identificados: Tradução de Tela e Apps e Conversa Presencial por Voz.
 - **FR-017**: No modo Conversa Presencial, o sistema DEVE traduzir turnos de fala nos dois sentidos entre PT-BR e o idioma estrangeiro selecionado (inglês ou espanhol).
 - **FR-018**: O sistema DEVE indicar se transcrição é local ou remota e solicitar consentimento/avisar antes de enviar áudio ou texto a um serviço remoto.
+- **FR-019**: O sistema NÃO DEVE embutir chave de API no código, no APK ou no repositório. O uso do Claude só é possível com a chave do próprio usuário, colada por ele no app.
+- **FR-020**: O sistema DEVE guardar a chave do usuário criptografada com o Android Keystore, nunca mostrá-la inteira depois de salva e permitir apagá-la a qualquer momento.
+- **FR-021**: Com chave e consentimento, o modo Qualidade da Tradução de Tela DEVE traduzir pelo Claude apenas o texto reconhecido (nunca imagens nem áudio), e só as linhas que ainda não foram traduzidas na sessão.
+- **FR-022**: O sistema DEVE oferecer "O que isso quer dizer?" ao tocar numa tradução da sobreposição, com chamada ao Claude apenas nesse toque.
+- **FR-023**: Qualquer falha do Claude DEVE cair para a tradução local do ML Kit, com aviso do motivo, sem encerrar a sessão (Princípio III).
+- **FR-024**: O sistema DEVE mostrar os tokens usados e o custo estimado da sessão, calculados a partir do consumo que a API devolve em cada resposta.
 
 ## Requisitos não funcionais
 
@@ -112,7 +136,8 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - **NFR-002**: A experiência deve buscar atraso de 1–2 segundos para conteúdo curto em condições favoráveis; esse objetivo é uma hipótese de desempenho a medir, não uma garantia.
 - **NFR-003**: O processamento deve reduzir atividade quando a tela e o áudio não apresentarem mudanças relevantes.
 - **NFR-004**: Falhas de OCR, rede, tradução ou áudio não devem fechar inesperadamente a sessão nem impedir a parada pelo usuário.
-- **NFR-005**: Dados enviados à nuvem devem limitar-se ao necessário para a operação solicitada e seguir política de descarte após processamento, sujeita à confirmação técnica do provedor escolhido.
+- **NFR-005**: Dados enviados à nuvem devem limitar-se ao necessário para a operação solicitada e seguir política de descarte após processamento, sujeita à confirmação técnica do provedor escolhido. Para o Claude, a política confirmada está em `research.md` (T042).
+- **NFR-006**: O custo do Claude deve ser mínimo: modelo Claude Haiku 5.5, raciocínio estendido desligado, esforço baixo, teto de tokens por resposta e intervalo mínimo entre chamadas. Meta inicial a medir: até US$ 0,15 por hora de uso contínuo do modo Qualidade.
 
 ## Casos de borda
 
@@ -124,6 +149,8 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - Internet intermitente, serviço remoto indisponível ou cota/custo atingido.
 - Mudança de orientação, troca de aplicativo, bloqueio de tela ou encerramento pelo sistema.
 - Usuário fecha a sessão antes de uma resposta de tradução chegar.
+- Chave de API inválida, revogada, sem crédito ou com limite de gasto mensal atingido.
+- Tela com dado sensível (banco, senha, mensagens privadas) no modo Qualidade com Claude; apps com `FLAG_SECURE` já aparecem em preto, mas outros não.
 
 ## Dados e entidades
 
@@ -132,6 +159,8 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - **Resultado de tradução**: texto traduzido, vínculo com o segmento, tempos de exibição e origem local/nuvem; efêmero por padrão.
 - **Tradução salva**: texto de origem e tradução escolhidos explicitamente pelo usuário, com data e idioma.
 - **Preferências**: idioma de destino, modo, voz e controles da sobreposição.
+- **Credencial do Claude**: chave de API do próprio usuário, criptografada pelo Android Keystore; nunca sai do aparelho exceto no cabeçalho da chamada à API.
+- **Consumo da sessão**: tokens de entrada e saída e custo estimado; em memória, zerado ao encerrar a sessão.
 
 ## Critérios de sucesso
 
@@ -157,3 +186,5 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - Áudio interno é oportunista; conversa usa microfone somente após escolha explícita e autorização.
 - A arquitetura é híbrida e decide entre local e nuvem considerando qualidade, conectividade, bateria e custo.
 - A estimativa inicial é uma ordem de grandeza em USD documentada em `research.md`, não preço final nem medição.
+- No MVP, cada pessoa usa a própria chave de API da Anthropic, sem backend da equipe. Distribuir o app para usuários sem chave exigiria um backend que guarde a chave, o que fica fora do MVP.
+- O Claude entra só no modo Tela (Qualidade e "O que isso quer dizer?"). A conversa por voz continua 100% local nesta versão.

@@ -9,6 +9,7 @@ datastore = "1.3.0"
 mlkitTextRecognition = "19.0.2"
 mlkitTranslation = "17.0.3"
 mlkitLanguageId = "17.0.6"
+anthropic = "3.8.0"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -29,3 +30,4 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 mlkit-text-recognition = { module = "com.google.android.gms:play-services-mlkit-text-recognition", version.ref = "mlkitTextRecognition" }
 mlkit-translation = { module = "com.google.mlkit:translate", version.ref = "mlkitTranslation" }
 mlkit-language-id = { module = "com.google.mlkit:language-id", version.ref = "mlkitLanguageId" }
+anthropic-java = { module = "com.anthropic:anthropic-java", version.ref = "anthropic" }

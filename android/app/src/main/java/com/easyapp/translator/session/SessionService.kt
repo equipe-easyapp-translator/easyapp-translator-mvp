@@ -18,10 +18,15 @@ import android.os.Looper
 import android.view.WindowManager
 import com.easyapp.translator.MainActivity
 import com.easyapp.translator.data.UserPreferencesRepository
+import com.easyapp.translator.translation.ClaudeKeyStore
+import com.easyapp.translator.translation.ClaudeResult
+import com.easyapp.translator.translation.ClaudeTranslator
+import com.easyapp.translator.translation.ClaudeUsageHolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.collect
@@ -40,6 +45,7 @@ class SessionService : Service() {
     private var screenMessage: String? = null
     private var activeAudioCaption: ScreenTranslation? = null
     private var audioCaptionExpiry: Runnable? = null
+    private var claude: ClaudeTranslator? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -147,7 +153,9 @@ class SessionService : Service() {
             }
 
             SessionStateHolder.start(mode)
+            ClaudeUsageHolder.reset()
             if (mode == AppMode.SCREEN) {
+                claude = createClaudeTranslator()
                 screenResults = emptyList()
                 screenMessage = "Iniciando captura da tela…"
                 if (startIntent.getBooleanExtra(EXTRA_CAPTURE_INTERNAL_AUDIO, false)) startAudioCaptionPipeline()
@@ -177,7 +185,14 @@ class SessionService : Service() {
         conversationEngine = null
         overlay?.hide()
         overlay = null
-        SessionStateHolder.stop(message)
+        closeClaude()
+        // O consumo é zerado ao encerrar (FR-024); o total fica só na mensagem final.
+        val usage = ClaudeUsageHolder.usage.value
+        ClaudeUsageHolder.reset()
+        val summary = if (usage.requests > 0) {
+            " · Claude: ${usage.requests} chamadas, ${usage.inputTokens + usage.outputTokens} tokens, ~US$ ${"%.4f".format(java.util.Locale.US, usage.estimatedCostUsd)}"
+        } else ""
+        SessionStateHolder.stop(message + summary)
         val projection = mediaProjection
         mediaProjection = null
         if (projection != null) {
@@ -256,6 +271,7 @@ class SessionService : Service() {
         conversationEngine = null
         overlay?.hide()
         overlay = null
+        closeClaude()
         serviceScope.cancel()
         val projection = mediaProjection
         mediaProjection = null
@@ -277,6 +293,7 @@ class SessionService : Service() {
                 startService(controlIntent(this, action))
             },
             onStop = { startService(controlIntent(this, ACTION_STOP)) },
+            onExplain = claude?.let { { item: ScreenTranslation -> explain(item) } },
         )
         overlay = overlayController
         serviceScope.launch {
@@ -291,6 +308,7 @@ class SessionService : Service() {
                 qualityMode = settings.qualityMode.name,
                 initialSourceLanguage = settings.sourceLanguage,
                 initialTargetLanguage = settings.targetLanguage,
+                claude = claude,
                 onModelStatus = { message ->
                     mainHandler.post {
                         if (!ending) SessionStateHolder.updateTranslationModelStatus(message)
@@ -359,6 +377,39 @@ class SessionService : Service() {
                         audioCaptionPipeline?.updateConfiguration(settings.first, settings.second, settings.third)
                     }
                 }
+        }
+    }
+
+    /** Só existe com chave salva, consentimento aceito e opção ligada (FR-019/FR-020). */
+    private fun createClaudeTranslator(): ClaudeTranslator? {
+        val store = ClaudeKeyStore(applicationContext)
+        if (!store.usable) return null
+        val key = store.load() ?: return null
+        return runCatching { ClaudeTranslator(key) }.getOrNull()
+    }
+
+    private fun closeClaude() {
+        val current = claude ?: return
+        claude = null
+        // Fechar o cliente HTTP pode bloquear; não segura a thread principal.
+        Thread { current.close() }.start()
+    }
+
+    /** "O que isso quer dizer?" — só roda quando o usuário toca numa linha (FR-022). */
+    private fun explain(item: ScreenTranslation) {
+        val translator = claude ?: return
+        val snapshot = SessionStateHolder.snapshot.value
+        overlay?.showExplanation(item.source, "Perguntando ao Claude…")
+        serviceScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                translator.explain(item.source, item.translated, snapshot.sourceLanguage, snapshot.targetLanguage)
+            }
+            if (ending) return@launch
+            val text = when (result) {
+                is ClaudeResult.Ok -> result.value
+                is ClaudeResult.Failed -> "Não foi possível explicar agora: ${result.reason}."
+            }
+            overlay?.showExplanation(item.source, text)
         }
     }
 
