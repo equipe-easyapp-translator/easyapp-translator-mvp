@@ -138,14 +138,14 @@ class TranslationOverlayController(
             item.speakerLabel?.let { speaker ->
                 translations.addView(TextView(context).apply {
                     text = speaker
-                    setTextColor(0xFFB9DCC6.toInt())
+                    setTextColor(BRAND_ON_INK)
                     textSize = 11f
                     setPadding(0, dp(3), 0, 0)
                 })
             }
             val label = TextView(context).apply {
                 text = item.translated.ifBlank { item.source }
-                setTextColor(Color.WHITE)
+                setTextColor(TEXT_ON_INK)
                 textSize = fontSize
                 setPadding(0, dp(3), 0, dp(3))
                 contentDescription = "Tradução de: ${item.source}"
@@ -225,14 +225,20 @@ class TranslationOverlayController(
         }
     }
 
+    // Paleta do design system: faixa `ink` (#1B1D18) com cartão `inkAlt` (#26281F).
     private fun updateAlpha() {
-        root.background = rounded(Color.argb(backgroundAlpha * 255 / 100, 22, 33, 29), 18f)
-        translationBand.background = rounded(Color.argb(backgroundAlpha * 255 / 100, 42, 70, 54), 14f)
+        val alpha = backgroundAlpha * 255 / 100
+        root.background = rounded(Color.argb(alpha, 0x1B, 0x1D, 0x18), 18f)
+        translationBand.background = rounded(Color.argb(alpha, 0x26, 0x28, 0x1F), 14f)
     }
 
     private fun actionButton(label: String, action: () -> Unit) = Button(context).apply {
         text = label
-        textSize = 11f
+        textSize = 12f
+        isAllCaps = false
+        setTextColor(TEXT_ON_INK)
+        background = rounded(0xFF33362C.toInt(), 10f)
+        stateListAnimator = null
         minHeight = dp(38)
         minimumHeight = dp(38)
         minWidth = 0
@@ -247,6 +253,11 @@ class TranslationOverlayController(
     }
 
     private fun dp(value: Int) = (value * density).toInt()
+
+    private companion object {
+        val TEXT_ON_INK = 0xFFF4F1EA.toInt()
+        val BRAND_ON_INK = 0xFF4EC294.toInt()
+    }
 
     private fun overlayWidth(): Int = dp(380).coerceAtMost(
         (context.resources.displayMetrics.widthPixels - dp(32)).coerceAtLeast(dp(1)),

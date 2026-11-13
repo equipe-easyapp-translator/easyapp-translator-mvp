@@ -250,7 +250,7 @@ class ConversationEngine(
                 recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(appContext)
                 usingOfflineRecognizer = true
                 ConversationStateHolder.update {
-                    it.copy(speechRecognizerAvailable = true, offlineSpeechAvailable = true, status = "Reconhecimento offline pronto. Escolha quem fala e toque em Ouvir turno.")
+                    it.copy(speechRecognizerAvailable = true, offlineSpeechAvailable = true, status = "Reconhecimento offline pronto. Escolha quem fala e toque em Ouvir.")
                 }
             } else {
                 recognizer = SpeechRecognizer.createSpeechRecognizer(appContext)

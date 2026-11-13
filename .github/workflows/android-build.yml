@@ -1,9 +1,8 @@
 name: Android debug APK
 
 on:
+  # Qualquer branch gera APK, para testar no celular antes de juntar na main.
   push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:

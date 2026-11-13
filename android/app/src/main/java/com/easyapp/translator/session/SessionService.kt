@@ -206,7 +206,8 @@ class SessionService : Service() {
         }
 
         val builder = androidx.core.app.NotificationCompat.Builder(this, CHANNEL_ID)
-        builder.setSmallIcon(android.R.drawable.ic_dialog_info)
+        builder.setSmallIcon(com.easyapp.translator.R.drawable.ic_notification)
+        builder.setColor(getColor(com.easyapp.translator.R.color.brand))
         builder.setContentTitle("EasyApp · ${if (paused) "Pausada" else "Sessão ativa"}")
         builder.setContentText(detail)
         builder.setContentIntent(

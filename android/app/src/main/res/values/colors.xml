@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Verde da marca (mesmo do Panela). -->
+    <color name="ic_launcher_background">#0E6B4D</color>
+    <color name="brand">#0E6B4D</color>
+    <color name="paper_light">#F4F1EA</color>
+    <color name="paper_dark">#191A15</color>
+</resources>

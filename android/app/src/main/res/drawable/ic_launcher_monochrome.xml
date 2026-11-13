@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Camada monocromática (ícones temáticos do Android 13+). O sistema pinta tudo de
+  uma cor só, então os balões viram traço. O clip-path é o quadrado inteiro menos
+  a área do balão da frente (o contorno dele tem sentido inverso, e a regra de
+  preenchimento nonzero abre o "buraco"), para o balão de trás não cruzar o da frente.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.92"
+        android:scaleY="0.92">
+        <group>
+            <clip-path android:pathData="M0,0H108V108H0z M75,43H52a11,11 0,0 0,-11 11v14a11,11 0,0 0,11 11h12l13,10v-6.5a11,11 0,0 0,9 -10.8V54a11,11 0,0 0,-11 -11z" />
+            <path
+                android:pathData="M33,30h26a7,7 0,0 1,7 7v15a7,7 0,0 1,-7 7H44l-8,7v-7h-3a7,7 0,0 1,-7 -7V37a7,7 0,0 1,7 -7z"
+                android:strokeWidth="3.6"
+                android:strokeColor="#FFFFFFFF"
+                android:strokeLineJoin="round" />
+            <path
+                android:pathData="M39,53L46,37L53,53M41.6,47.5h8.8"
+                android:strokeWidth="3.6"
+                android:strokeColor="#FFFFFFFF"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round" />
+        </group>
+        <path
+            android:pathData="M75,47H52a7,7 0,0 0,-7 7v14a7,7 0,0 0,7 7h15l8,7v-7a7,7 0,0 0,7 -7V54a7,7 0,0 0,-7 -7z"
+            android:strokeWidth="3.6"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M53,58h20M53,64h13"
+            android:strokeWidth="3.5"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round" />
+    </group>
+</vector>

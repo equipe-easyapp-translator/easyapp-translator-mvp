@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ícone pequeno da notificação: a mesma silhueta da camada monocromática, com traço mais grosso para 24 dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <group
+        android:translateX="-22"
+        android:translateY="-25">
+        <group>
+            <clip-path android:pathData="M0,0H108V108H0z M75,42H52a12,12 0,0 0,-12 12v14a12,12 0,0 0,12 12h11l14,11v-7a12,12 0,0 0,10 -11.5V54a12,12 0,0 0,-12 -12z" />
+            <path
+                android:pathData="M33,30h26a7,7 0,0 1,7 7v15a7,7 0,0 1,-7 7H44l-8,7v-7h-3a7,7 0,0 1,-7 -7V37a7,7 0,0 1,7 -7z"
+                android:strokeWidth="5"
+                android:strokeColor="#FFFFFFFF"
+                android:strokeLineJoin="round" />
+            <path
+                android:pathData="M39,53L46,37L53,53M41.6,47.5h8.8"
+                android:strokeWidth="4.6"
+                android:strokeColor="#FFFFFFFF"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round" />
+        </group>
+        <path
+            android:pathData="M75,47H52a7,7 0,0 0,-7 7v14a7,7 0,0 0,7 7h15l8,7v-7a7,7 0,0 0,7 -7V54a7,7 0,0 0,-7 -7z"
+            android:strokeWidth="5"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M53,58h20M53,64h13"
+            android:strokeWidth="4.6"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeLineCap="round" />
+    </group>
+</vector>

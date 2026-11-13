@@ -1,10 +1,8 @@
 <resources>
+    <!-- As barras do sistema são transparentes (enableEdgeToEdge na MainActivity);
+         o fundo da janela evita o clarão branco enquanto o Compose carrega. -->
     <style name="Theme.EasyApp" parent="android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#26734E</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:statusBarColor">#F5F4EF</item>
-        <item name="android:navigationBarColor">#F5F4EF</item>
-        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:colorAccent">@color/brand</item>
+        <item name="android:windowBackground">@color/paper_light</item>
     </style>
 </resources>

@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,7 +27,7 @@ import com.easyapp.translator.session.ConversationSpeaker
 import com.easyapp.translator.session.ConversationStateHolder
 import com.easyapp.translator.session.SessionService
 import com.easyapp.translator.session.SessionStateHolder
-import com.easyapp.translator.ui.EasyAppScreen
+import com.easyapp.translator.ui.home.HomeScreen
 import com.easyapp.translator.ui.theme.EasyAppTheme
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -82,6 +83,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Ícones da barra de status/navegação acompanham o tema claro/escuro do sistema;
+        // a tela aplica safeDrawingPadding para não ficar por baixo delas.
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         refreshPermissionState()
         showPrivacyNotice = !getSharedPreferences(PRIVACY_PREFS, MODE_PRIVATE)
@@ -100,7 +104,7 @@ class MainActivity : ComponentActivity() {
             val audioCaptions by AudioCaptionStateHolder.state.collectAsState()
 
             EasyAppTheme {
-                EasyAppScreen(
+                HomeScreen(
                     preferences = preferences,
                     session = session,
                     conversation = conversation,

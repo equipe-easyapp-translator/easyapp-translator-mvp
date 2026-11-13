@@ -17,7 +17,7 @@ data class ConversationSnapshot(
     val translatedText: String = "",
     val repeatText: String = "",
     val repeatLanguageTag: String = "en-US",
-    val status: String = "Escolha quem vai falar e toque em Ouvir turno.",
+    val status: String = "Escolha quem vai falar e toque em Ouvir.",
     val isListening: Boolean = false,
     val isSpeaking: Boolean = false,
     val speechRate: Float = 1f,
