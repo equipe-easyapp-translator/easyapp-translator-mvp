@@ -45,6 +45,8 @@ class InPlaceOverlayController(
     private val onStop: () -> Unit,
     private val onDragStarted: () -> Unit,
     private val onDragEnded: () -> Unit,
+    /** Tamanho da tradução escolhido nos Ajustes (FR-029). */
+    textScale: Float = 1f,
 ) {
     private val density = context.resources.displayMetrics.density
     private val main = Handler(Looper.getMainLooper())
@@ -120,7 +122,7 @@ class InPlaceOverlayController(
         y = context.resources.displayMetrics.heightPixels - dp(240)
     }
 
-    private val layer = TranslationLayerView(context) { clearTranslations(notify = true) }
+    private val layer = TranslationLayerView(context, textScale) { clearTranslations(notify = true) }
     private val layerParams = WindowManager.LayoutParams(
         WindowManager.LayoutParams.MATCH_PARENT,
         WindowManager.LayoutParams.MATCH_PARENT,
@@ -336,7 +338,11 @@ class InPlaceOverlayController(
 
 /** Desenha cada tradução sobre a linha original, com o fundo e a cor de texto amostrados. */
 @SuppressLint("ViewConstructor")
-private class TranslationLayerView(context: Context, private val onTouched: () -> Unit) : View(context) {
+private class TranslationLayerView(
+    context: Context,
+    private val textScale: Float,
+    private val onTouched: () -> Unit,
+) : View(context) {
     var items: List<PlacedTranslation> = emptyList()
         set(value) {
             field = value
@@ -375,19 +381,25 @@ private class TranslationLayerView(context: Context, private val onTouched: () -
         }
     }
 
-    /** Diminui a fonte até a tradução caber na altura da linha (com folga de 25%) ou chegar a 9 sp. */
+    /**
+     * Diminui a fonte até a tradução caber na altura da linha (com folga de 25%) ou
+     * chegar ao mínimo. O tamanho escolhido nos Ajustes amplia o ponto de partida,
+     * a folga e o mínimo: com texto grande, a caixa cresce para baixo em vez de encolher a letra.
+     */
     private fun fitText(text: String, width: Int, height: Float): StaticLayout {
-        var size = height * 0.78f
+        val minimum = minTextPx * textScale
+        val allowance = 1.25f * textScale
+        var size = height * 0.78f * textScale
         var layout: StaticLayout
         while (true) {
-            textPaint.textSize = size.coerceAtLeast(minTextPx)
+            textPaint.textSize = size.coerceAtLeast(minimum)
             layout = StaticLayout.Builder.obtain(text, 0, text.length, textPaint, width)
                 .setAlignment(Layout.Alignment.ALIGN_NORMAL)
                 .setIncludePad(false)
                 .setMaxLines(4)
                 .setEllipsize(TextUtils.TruncateAt.END)
                 .build()
-            if (layout.height <= height * 1.25f || size <= minTextPx) return layout
+            if (layout.height <= height * allowance || size <= minimum) return layout
             size *= 0.9f
         }
     }

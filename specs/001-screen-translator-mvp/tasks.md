@@ -88,3 +88,14 @@
 - [x] T056 Mostrar o botão flutuante e arrastável com Traduzir/Limpar, o estado ("Lendo a tela…", "Traduzindo…") e Parar.
 - [x] T057 Esconder a camada quando o conteúdo da tela mudar (rolagem, mensagem nova, troca de app), sem disparar ao arrastar o botão.
 - [ ] T058 (T051–T057 estão implementadas e compilam, run 43532819425; só contam como validadas depois deste teste.) Validar no aparelho com WhatsApp e navegador: alinhamento com barra de status e entalhe, tema claro/escuro do app de origem, textos longos e rolagem.
+
+## Fase 10 — História P2: páginas por modo e personalização
+
+- [ ] T059 Trocar a tela única por navegação com barra inferior (Tela, Conversa, Ajustes), páginas secundárias (Idiomas, Claude) e suporte ao botão Voltar; estado da interface num único `AppUiState` e ações num `AppActions`.
+- [ ] T060 Página Tela: barra de idiomas, escolha visual do estilo com ilustração, qualidade, Claude, permissões só quando faltarem e botão de iniciar fixo; com sessão ativa, painel da sessão.
+- [ ] T061 Página Conversa: preparação e, com sessão ativa, layouts frente a frente e lado a lado, um botão de falar por pessoa, histórico de turnos e opções de voz numa folha inferior.
+- [ ] T062 Página Idiomas com nomes no próprio idioma, marcação do escolhido e inversão rápida.
+- [ ] T063 Página Ajustes: tema, tamanho do texto do app e da tradução com prévia, estilo e qualidade padrão, layout da conversa, Claude, privacidade e sobre; salvar no DataStore.
+- [ ] T064 Aplicar o tamanho da tradução na janela flutuante e na tradução no lugar do texto.
+- [ ] T065 Revisar acessibilidade: áreas de toque de 48 dp, descrições para leitor de tela, títulos de seção e contraste nos dois temas.
+- [ ] T066 Validar no aparelho com pelo menos duas pessoas: trocar idioma, iniciar cada modo, ajustar tamanhos e conversar frente a frente.

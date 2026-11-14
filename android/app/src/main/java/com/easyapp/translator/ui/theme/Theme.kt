@@ -9,6 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 
 /**
  * Tema do EasyApp. Os componentes próprios leem [EasyTheme.colors]/[EasyTheme.type];
@@ -18,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 @Composable
 fun EasyAppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    /** Multiplica o tamanho de fonte do sistema (Ajustes → Tamanho do texto do app, FR-029). */
+    textScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     val colors = if (darkTheme) DarkEasyColors else LightEasyColors
@@ -81,9 +85,12 @@ fun EasyAppTheme(
         titleSmall = type.rowTitle,
         headlineSmall = type.screenTitle,
     )
+    val density = LocalDensity.current
     CompositionLocalProvider(
         LocalEasyColors provides colors,
         LocalEasyType provides type,
+        // Respeita a escala de acessibilidade do Android e aplica a do app por cima.
+        LocalDensity provides Density(density.density, density.fontScale * textScale),
     ) {
         MaterialTheme(colorScheme = scheme, typography = materialType, content = content)
     }

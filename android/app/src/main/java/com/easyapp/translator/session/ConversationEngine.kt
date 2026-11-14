@@ -448,6 +448,7 @@ class ConversationEngine(
             ConversationStateHolder.update {
                 it.copy(translatedText = transcript, repeatText = transcript, repeatLanguageTag = targetLocale, status = "Origem e destino são iguais; texto original mantido.")
             }
+            recordTurn(speaker, transcript, transcript, inputLanguage, outputLanguage)
             return
         }
         val translator = translators.getOrPut("$source->$target") {
@@ -478,12 +479,24 @@ class ConversationEngine(
                                 status = if (it.offlineTtsAvailable) "Tradução pronta. Lendo em voz alta…" else "Tradução pronta. Instale uma voz offline para ouvir.",
                             )
                         }
+                        recordTurn(speaker, transcript, translated, inputLanguage, outputLanguage)
                         if (ConversationStateHolder.state.value.offlineTtsAvailable) speak(translated, targetLocale)
                     }
                     .addOnFailureListener {
                         if (turnGeneration == generation && !closed) updateStatus("A tradução local falhou. Tente novamente com uma frase mais curta.")
                     }
             }
+    }
+
+    private fun recordTurn(
+        speaker: ConversationSpeaker,
+        original: String,
+        translated: String,
+        inputLanguage: String,
+        outputLanguage: String,
+    ) {
+        val turn = ConversationTurn(System.nanoTime(), speaker, original, translated, inputLanguage, outputLanguage)
+        ConversationStateHolder.update { it.copy(turns = (it.turns + turn).takeLast(MAX_TURNS)) }
     }
 
     private fun speak(text: String, localeTag: String) {
@@ -558,4 +571,8 @@ class ConversationEngine(
         if (speaker == ConversationSpeaker.USER_PORTUGUESE) target else source
 
     private fun languageName(language: String) = TranslationLanguages.choice(language).label.lowercase(Locale.ROOT)
+
+    private companion object {
+        const val MAX_TURNS = 50
+    }
 }

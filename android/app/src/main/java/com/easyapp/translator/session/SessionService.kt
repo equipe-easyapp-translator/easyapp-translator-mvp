@@ -300,14 +300,16 @@ class SessionService : Service() {
     private fun startScreenPipeline() {
         val activeProjection = mediaProjection ?: return
         serviceScope.launch {
-            val style = UserPreferencesRepository(applicationContext).preferences.first().overlayStyle
+            val initial = UserPreferencesRepository(applicationContext).preferences.first()
             if (ending) return@launch
-            if (style == OverlayStyle.IN_PLACE) startInPlacePipeline(activeProjection) else startFloatingPipeline(activeProjection)
+            val textScale = initial.translationTextSize.scale
+            if (initial.overlayStyle == OverlayStyle.IN_PLACE) startInPlacePipeline(activeProjection, textScale)
+            else startFloatingPipeline(activeProjection, textScale)
         }
     }
 
     /** Estilo "No lugar do texto" (História 7): só lê a tela quando o usuário toca em Traduzir. */
-    private fun startInPlacePipeline(activeProjection: MediaProjection) {
+    private fun startInPlacePipeline(activeProjection: MediaProjection, textScale: Float) {
         val windowManager = getSystemService(WindowManager::class.java)
         var pipelineRef: InPlaceSnapshotPipeline? = null
         val controller = InPlaceOverlayController(
@@ -321,6 +323,7 @@ class SessionService : Service() {
             onStop = { startService(controlIntent(this, ACTION_STOP)) },
             onDragStarted = { pipelineRef?.holdWatch() },
             onDragEnded = { pipelineRef?.releaseWatch() },
+            textScale = textScale,
         )
         inPlaceOverlay = controller
         serviceScope.launch {
@@ -366,7 +369,7 @@ class SessionService : Service() {
         }
     }
 
-    private fun startFloatingPipeline(activeProjection: MediaProjection) {
+    private fun startFloatingPipeline(activeProjection: MediaProjection, textScale: Float) {
         val windowManager = getSystemService(WindowManager::class.java)
         val overlayController = TranslationOverlayController(
             this,
@@ -377,6 +380,7 @@ class SessionService : Service() {
             },
             onStop = { startService(controlIntent(this, ACTION_STOP)) },
             onExplain = claude?.let { { item: ScreenTranslation -> explain(item) } },
+            textScale = textScale,
         )
         overlay = overlayController
         serviceScope.launch {

@@ -10,9 +10,12 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,7 +23,12 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.startForegroundService
 import androidx.lifecycle.lifecycleScope
+import com.easyapp.translator.data.ConversationLayout
 import com.easyapp.translator.data.OverlayStyle
+import com.easyapp.translator.data.QualityMode
+import com.easyapp.translator.data.TextSize
+import com.easyapp.translator.data.ThemeMode
+import com.easyapp.translator.data.UserPreferences
 import com.easyapp.translator.data.UserPreferencesRepository
 import com.easyapp.translator.session.AppMode
 import com.easyapp.translator.session.AudioCaptionStateHolder
@@ -32,8 +40,10 @@ import com.easyapp.translator.translation.ClaudeKeyStore
 import com.easyapp.translator.translation.ClaudeResult
 import com.easyapp.translator.translation.ClaudeTranslator
 import com.easyapp.translator.translation.ClaudeUsageHolder
+import com.easyapp.translator.ui.AppActions
+import com.easyapp.translator.ui.AppUiState
 import com.easyapp.translator.ui.home.ClaudeUiState
-import com.easyapp.translator.ui.home.HomeScreen
+import com.easyapp.translator.ui.navigation.AppRoot
 import com.easyapp.translator.ui.theme.EasyAppTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
@@ -114,76 +124,145 @@ class MainActivity : ComponentActivity() {
                 currentOverlayStyle = preferences.overlayStyle
             }
         }
+        val appVersion = runCatching {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(packageName, 0).versionName
+        }.getOrNull().orEmpty()
         setContent {
-            val preferences by preferencesRepository.preferences.collectAsState(
-                initial = com.easyapp.translator.data.UserPreferences.DEFAULT,
-            )
+            val preferences by preferencesRepository.preferences.collectAsState(initial = UserPreferences.DEFAULT)
             val session by SessionStateHolder.snapshot.collectAsState()
             val conversation by ConversationStateHolder.state.collectAsState()
             val audioCaptions by AudioCaptionStateHolder.state.collectAsState()
             val claudeUsage by ClaudeUsageHolder.usage.collectAsState()
+            val dark = when (preferences.themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+            // O tema do app pode ser diferente do sistema; os ícones das barras precisam acompanhar.
+            DisposableEffect(dark) {
+                val style = if (dark) {
+                    SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                } else {
+                    SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+                }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                onDispose { }
+            }
 
-            EasyAppTheme {
-                HomeScreen(
-                    preferences = preferences,
-                    session = session,
-                    conversation = conversation,
-                    audioCaptions = audioCaptions,
-                    permissionState = permissionUiState,
-                    screenAudioCaptionsSelected = screenAudioCaptionsSelected,
-                    showPrivacyNotice = showPrivacyNotice,
-                    onModeSelected = { mode -> lifecycleScope.launch { preferencesRepository.setPreferredMode(mode) } },
-                    onLanguagesSelected = { source, target ->
-                        SessionStateHolder.updateLanguages(source, target)
-                        lifecycleScope.launch { preferencesRepository.setLanguages(source, target) }
-                    },
-                    onQualitySelected = { quality -> lifecycleScope.launch { preferencesRepository.setQualityMode(quality) } },
-                    onOverlayStyleSelected = { style -> lifecycleScope.launch { preferencesRepository.setOverlayStyle(style) } },
-                    onStartRequested = ::requestSessionStart,
-                    onPauseRequested = { sendSessionAction(SessionService.ACTION_PAUSE) },
-                    onResumeRequested = { sendSessionAction(SessionService.ACTION_RESUME) },
-                    onStopRequested = { sendSessionAction(SessionService.ACTION_STOP) },
-                    onOpenOverlaySettings = ::openOverlaySettings,
-                    onRequestRuntimePermissions = { requestRuntimePermissions() },
-                    onPrivacyNoticeAccepted = {
-                        getSharedPreferences(PRIVACY_PREFS, MODE_PRIVATE).edit()
-                            .putBoolean(PRIVACY_NOTICE_ACCEPTED, true).apply()
-                        showPrivacyNotice = false
-                        requestRuntimePermissions()
-                    },
-                    onPrivacyNoticeDeclined = { finish() },
-                    onConversationSpeakerSelected = { speaker ->
-                        sendConversationValue(SessionService.ACTION_CONVERSATION_SPEAKER, SessionService.EXTRA_CONVERSATION_SPEAKER, speaker.name)
-                    },
-                    onConversationListen = { sendSessionAction(SessionService.ACTION_CONVERSATION_LISTEN) },
-                    onConversationCancel = { sendSessionAction(SessionService.ACTION_CONVERSATION_CANCEL) },
-                    onConversationRepeat = { sendSessionAction(SessionService.ACTION_CONVERSATION_REPEAT) },
-                    onConversationVoiceSelected = { voiceId ->
-                        sendConversationValue(SessionService.ACTION_CONVERSATION_VOICE, SessionService.EXTRA_CONVERSATION_VOICE, voiceId)
-                    },
-                    onConversationRateChanged = { rate -> sendConversationFloat(SessionService.ACTION_CONVERSATION_RATE, rate) },
-                    onConversationVolumeChanged = { volume -> sendConversationFloat(SessionService.ACTION_CONVERSATION_VOLUME, volume) },
-                    onClearAudioCaptions = { sendSessionAction(SessionService.ACTION_CLEAR_AUDIO_HISTORY) },
-                    onScreenAudioCaptionsSelected = { selected -> screenAudioCaptionsSelected = selected },
-                    claude = claudeUiState,
-                    claudeUsage = claudeUsage,
-                    onClaudeSaveKey = ::saveClaudeKey,
-                    onClaudeConsentAccepted = {
-                        claudeKeyStore.consentAccepted = true
-                        refreshClaudeState()
-                    },
-                    onClaudeEnabledChanged = { enabled ->
-                        claudeKeyStore.enabled = enabled
-                        refreshClaudeState()
-                    },
-                    onClaudeRemoveKey = {
-                        claudeKeyStore.clear()
-                        refreshClaudeState()
-                    },
-                    onClaudeTest = ::testClaude,
+            EasyAppTheme(darkTheme = dark, textScale = preferences.appTextSize.scale) {
+                AppRoot(
+                    state = AppUiState(
+                        preferences = preferences,
+                        session = session,
+                        conversation = conversation,
+                        audioCaptions = audioCaptions,
+                        permissions = permissionUiState,
+                        screenAudioCaptionsSelected = screenAudioCaptionsSelected,
+                        showPrivacyNotice = showPrivacyNotice,
+                        claude = claudeUiState,
+                        claudeUsage = claudeUsage,
+                        appVersion = appVersion,
+                    ),
+                    actions = appActions,
                 )
             }
         }
+    }
+
+    /** Ações da interface (T059): cada uma vira uma preferência salva ou um comando para o serviço. */
+    private val appActions = object : AppActions {
+        override fun rememberMode(mode: AppMode) {
+            lifecycleScope.launch { preferencesRepository.setPreferredMode(mode) }
+        }
+
+        override fun setLanguages(source: String, target: String) {
+            SessionStateHolder.updateLanguages(source, target)
+            lifecycleScope.launch { preferencesRepository.setLanguages(source, target) }
+        }
+
+        override fun setQuality(mode: QualityMode) {
+            lifecycleScope.launch { preferencesRepository.setQualityMode(mode) }
+        }
+
+        override fun setOverlayStyle(style: OverlayStyle) {
+            lifecycleScope.launch { preferencesRepository.setOverlayStyle(style) }
+        }
+
+        override fun setThemeMode(mode: ThemeMode) {
+            lifecycleScope.launch { preferencesRepository.setThemeMode(mode) }
+        }
+
+        override fun setAppTextSize(size: TextSize) {
+            lifecycleScope.launch { preferencesRepository.setAppTextSize(size) }
+        }
+
+        override fun setTranslationTextSize(size: TextSize) {
+            lifecycleScope.launch { preferencesRepository.setTranslationTextSize(size) }
+        }
+
+        override fun setConversationLayout(layout: ConversationLayout) {
+            lifecycleScope.launch { preferencesRepository.setConversationLayout(layout) }
+        }
+
+        override fun setScreenAudioCaptions(enabled: Boolean) {
+            screenAudioCaptionsSelected = enabled
+        }
+
+        override fun resetPreferences() {
+            lifecycleScope.launch { preferencesRepository.resetAll() }
+        }
+
+        override fun start(mode: AppMode) = requestSessionStart(mode)
+        override fun pause() = sendSessionAction(SessionService.ACTION_PAUSE)
+        override fun resume() = sendSessionAction(SessionService.ACTION_RESUME)
+        override fun stop() = sendSessionAction(SessionService.ACTION_STOP)
+        override fun requestPermissions() = requestRuntimePermissions()
+        override fun openOverlaySettings() = this@MainActivity.openOverlaySettings()
+
+        override fun acceptPrivacyNotice() {
+            getSharedPreferences(PRIVACY_PREFS, MODE_PRIVATE).edit()
+                .putBoolean(PRIVACY_NOTICE_ACCEPTED, true).apply()
+            showPrivacyNotice = false
+            requestRuntimePermissions()
+        }
+
+        override fun declinePrivacyNotice() = finish()
+
+        override fun speak(speaker: ConversationSpeaker) {
+            // O serviço processa na ordem: primeiro troca quem fala, depois começa a ouvir.
+            sendConversationValue(SessionService.ACTION_CONVERSATION_SPEAKER, SessionService.EXTRA_CONVERSATION_SPEAKER, speaker.name)
+            sendSessionAction(SessionService.ACTION_CONVERSATION_LISTEN)
+        }
+
+        override fun cancelListening() = sendSessionAction(SessionService.ACTION_CONVERSATION_CANCEL)
+        override fun repeatTranslation() = sendSessionAction(SessionService.ACTION_CONVERSATION_REPEAT)
+
+        override fun selectVoice(voiceId: String) =
+            sendConversationValue(SessionService.ACTION_CONVERSATION_VOICE, SessionService.EXTRA_CONVERSATION_VOICE, voiceId)
+
+        override fun setSpeechRate(rate: Float) = sendConversationFloat(SessionService.ACTION_CONVERSATION_RATE, rate)
+        override fun setVolume(volume: Float) = sendConversationFloat(SessionService.ACTION_CONVERSATION_VOLUME, volume)
+        override fun clearAudioCaptions() = sendSessionAction(SessionService.ACTION_CLEAR_AUDIO_HISTORY)
+
+        override fun claudeSaveKey(key: String) = saveClaudeKey(key)
+
+        override fun claudeAcceptConsent() {
+            claudeKeyStore.consentAccepted = true
+            refreshClaudeState()
+        }
+
+        override fun claudeSetEnabled(enabled: Boolean) {
+            claudeKeyStore.enabled = enabled
+            refreshClaudeState()
+        }
+
+        override fun claudeRemoveKey() {
+            claudeKeyStore.clear()
+            refreshClaudeState()
+        }
+
+        override fun claudeTest() = testClaude()
     }
 
     override fun onResume() {

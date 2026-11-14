@@ -23,6 +23,8 @@ class TranslationOverlayController(
     private val onStop: () -> Unit,
     /** "O que isso quer dizer?" (FR-022); nulo quando o Claude não está configurado. */
     private val onExplain: ((ScreenTranslation) -> Unit)? = null,
+    /** Tamanho da tradução escolhido nos Ajustes (FR-029). */
+    textScale: Float = 1f,
 ) {
     private val density = context.resources.displayMetrics.density
     private val root = LinearLayout(context).apply {
@@ -91,7 +93,7 @@ class TranslationOverlayController(
     private var attached = false
     // Each controller is created for a new screen-translation session, which starts expanded.
     private var collapsed = false
-    private var fontSize = 16f
+    private var fontSize = (16f * textScale).coerceIn(12f, 28f)
     private var backgroundAlpha = 92
     private var alphaControl: SeekBar? = null
     private var hasResults = false

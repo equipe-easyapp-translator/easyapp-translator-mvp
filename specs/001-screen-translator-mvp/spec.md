@@ -113,6 +113,23 @@ Como usuário lendo uma conversa ou página em outro idioma (por exemplo, no Wha
 4. **Dado** que uma linha já está no idioma de destino, **quando** a tela for traduzida, **então** essa linha não é coberta.
 5. **Dado** que o Claude está configurado e o modo é Qualidade, **quando** o usuário toca em Traduzir, **então** as linhas da tela vão juntas para o Claude, com contexto; sem Claude, a tradução é a do ML Kit.
 
+### História 8 — Navegar por páginas e adaptar o app a mim (P2)
+
+Como usuário com necessidades próprias (vista cansada, pouca familiaridade com tecnologia, conversa com alguém sentado à minha frente), quero que cada modo tenha a sua página, clara e sem excesso de opções, e quero escolher o tema, o tamanho dos textos e a disposição da conversa, para usar o app do jeito que funciona melhor para mim.
+
+**Base de produto**: a persona Marco não fala português e usa o app em público, com pressa; o E1 só usaria "para conceitos importantes". O app precisa ser compreensível em segundos e legível em qualquer condição.
+
+**Teste independente**: Sem ajuda, trocar o idioma, iniciar cada modo pela sua página, aumentar o texto do app e da tradução e conferir a mudança na prévia; numa conversa frente a frente, cada pessoa lê o seu lado sem girar o celular.
+
+**Cenários de aceitação**:
+
+1. **Dado** que o app abriu, **quando** o usuário olha a tela, **então** vê uma barra com as páginas Tela, Conversa e Ajustes e sabe em qual está; o botão Voltar do Android volta para a página anterior.
+2. **Dado** que o usuário está na página Tela ou Conversa, **quando** quiser trocar o idioma, **então** toca na barra de idiomas, escolhe numa lista com o nome de cada idioma escrito nele mesmo e volta à página.
+3. **Dado** que o usuário abre os Ajustes, **quando** muda o tema ou o tamanho do texto, **então** o app inteiro e a prévia mudam na hora, e a escolha fica salva.
+4. **Dado** que o usuário escolheu o tamanho da tradução, **quando** usar a janela flutuante ou a tradução no lugar do texto, **então** o texto traduzido respeita esse tamanho.
+5. **Dado** que a conversa está no layout frente a frente, **quando** a sessão começa, **então** a metade de cima da tela fica virada para a outra pessoa, cada metade tem o seu botão de falar e mostra a última tradução no idioma de quem lê.
+6. **Dado** que houve vários turnos na conversa, **quando** o usuário olha a página, **então** vê o histórico da sessão em balões, que é apagado ao encerrar.
+
 ## Limites do MVP
 
 Inclui um app Android EasyApp / ScreenTranslator com dois modos: (1) tela/apps, com OCR, detecção de mudanças, tradução em sobreposição e legendas de áudio de reprodução quando capturável; (2) conversa presencial por voz, com microfone, transcrição, tradução bidirecional PT-BR↔EN/ES e síntese de fala. Inclui modos de processamento, histórico efêmero e opção explícita para salvar uma tradução selecionada.
@@ -148,6 +165,11 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - **FR-025**: No estilo "No lugar do texto", a leitura da tela DEVE acontecer só quando o usuário toca em Traduzir, sem OCR contínuo.
 - **FR-026**: A camada de tradução no lugar do texto NÃO DEVE prender o usuário: o primeiro toque em qualquer ponto a fecha e devolve o app de origem. *(Decisão técnica: o Android 12+ bloqueia toques que atravessam janelas sobrepostas opacas de outro app, então a camada não pode ser opaca e deixar o toque passar ao mesmo tempo; segue-se o comportamento do Google Lens.)*
 - **FR-027**: A camada DEVE sumir quando o conteúdo da tela mudar, para nunca mostrar tradução sobre um texto que já não está ali.
+- **FR-028**: O app DEVE ter uma página por modo (Tela, Conversa) e uma de Ajustes, acessíveis por uma barra de navegação fixa, e respeitar o botão Voltar do sistema.
+- **FR-029**: O usuário DEVE poder escolher o tema (seguir o sistema, claro ou escuro), o tamanho do texto do app e o tamanho do texto da tradução sobre a tela, com prévia imediata; as escolhas ficam salvas no aparelho.
+- **FR-030**: O modo Conversa DEVE oferecer o layout frente a frente (metade da tela invertida para o interlocutor, um botão de falar por pessoa) e o layout lado a lado, à escolha do usuário.
+- **FR-031**: O modo Conversa DEVE mostrar o histórico de turnos da sessão, só em memória, apagado ao encerrar (FR-011).
+- **FR-032**: Todo controle DEVE ter área de toque de pelo menos 48 dp e descrição para leitor de tela.
 
 ## Requisitos não funcionais
 

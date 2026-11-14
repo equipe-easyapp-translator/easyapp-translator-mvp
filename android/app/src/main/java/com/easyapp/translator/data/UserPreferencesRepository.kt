@@ -20,12 +20,37 @@ enum class OverlayStyle(val label: String) {
     FLOATING("Janela flutuante"),
 }
 
+/** Tema do app (FR-029). */
+enum class ThemeMode(val label: String) {
+    SYSTEM("Sistema"),
+    LIGHT("Claro"),
+    DARK("Escuro"),
+}
+
+/** Escala de texto (FR-029). Usada tanto para o app quanto para a tradução sobre a tela. */
+enum class TextSize(val label: String, val scale: Float) {
+    SMALL("Pequeno", 0.9f),
+    DEFAULT("Padrão", 1f),
+    LARGE("Grande", 1.15f),
+    HUGE("Muito grande", 1.3f),
+}
+
+/** Disposição da conversa (FR-030). */
+enum class ConversationLayout(val label: String) {
+    FACE_TO_FACE("Frente a frente"),
+    SIDE_BY_SIDE("Lado a lado"),
+}
+
 data class UserPreferences(
     val qualityMode: QualityMode = QualityMode.BALANCED,
     val preferredMode: AppMode = AppMode.SCREEN,
     val sourceLanguage: String = "en",
     val targetLanguage: String = "pt",
     val overlayStyle: OverlayStyle = OverlayStyle.IN_PLACE,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val appTextSize: TextSize = TextSize.DEFAULT,
+    val translationTextSize: TextSize = TextSize.DEFAULT,
+    val conversationLayout: ConversationLayout = ConversationLayout.FACE_TO_FACE,
 ) {
     companion object {
         val DEFAULT = UserPreferences()
@@ -40,17 +65,15 @@ class UserPreferencesRepository(context: Context) {
 
     val preferences: Flow<UserPreferences> = dataStore.data.map { stored ->
         UserPreferences(
-            qualityMode = stored[QUALITY_MODE]
-                ?.let { value -> QualityMode.entries.firstOrNull { it.name == value } }
-                ?: QualityMode.BALANCED,
-            preferredMode = stored[PREFERRED_MODE]
-                ?.let { value -> AppMode.entries.firstOrNull { it.name == value } }
-                ?: AppMode.SCREEN,
+            qualityMode = enumOrDefault(stored[QUALITY_MODE], QualityMode.BALANCED),
+            preferredMode = enumOrDefault(stored[PREFERRED_MODE], AppMode.SCREEN),
             sourceLanguage = stored[SOURCE_LANGUAGE]?.takeIf { it in SUPPORTED_LANGUAGES } ?: "en",
             targetLanguage = stored[TARGET_LANGUAGE]?.takeIf { it in SUPPORTED_TARGET_LANGUAGES } ?: "pt",
-            overlayStyle = stored[OVERLAY_STYLE]
-                ?.let { value -> OverlayStyle.entries.firstOrNull { it.name == value } }
-                ?: OverlayStyle.IN_PLACE,
+            overlayStyle = enumOrDefault(stored[OVERLAY_STYLE], OverlayStyle.IN_PLACE),
+            themeMode = enumOrDefault(stored[THEME_MODE], ThemeMode.SYSTEM),
+            appTextSize = enumOrDefault(stored[APP_TEXT_SIZE], TextSize.DEFAULT),
+            translationTextSize = enumOrDefault(stored[TRANSLATION_TEXT_SIZE], TextSize.DEFAULT),
+            conversationLayout = enumOrDefault(stored[CONVERSATION_LAYOUT], ConversationLayout.FACE_TO_FACE),
         )
     }
 
@@ -66,6 +89,22 @@ class UserPreferencesRepository(context: Context) {
         dataStore.edit { it[PREFERRED_MODE] = mode.name }
     }
 
+    suspend fun setThemeMode(mode: ThemeMode) {
+        dataStore.edit { it[THEME_MODE] = mode.name }
+    }
+
+    suspend fun setAppTextSize(size: TextSize) {
+        dataStore.edit { it[APP_TEXT_SIZE] = size.name }
+    }
+
+    suspend fun setTranslationTextSize(size: TextSize) {
+        dataStore.edit { it[TRANSLATION_TEXT_SIZE] = size.name }
+    }
+
+    suspend fun setConversationLayout(layout: ConversationLayout) {
+        dataStore.edit { it[CONVERSATION_LAYOUT] = layout.name }
+    }
+
     suspend fun setLanguages(source: String, target: String) {
         if (source in SUPPORTED_LANGUAGES && target in SUPPORTED_TARGET_LANGUAGES) {
             dataStore.edit {
@@ -75,13 +114,25 @@ class UserPreferencesRepository(context: Context) {
         }
     }
 
+    /** Volta todas as escolhas de interface ao padrão (Ajustes → Privacidade). */
+    suspend fun resetAll() {
+        dataStore.edit { it.clear() }
+    }
+
     private companion object {
         val QUALITY_MODE = stringPreferencesKey("quality_mode")
         val PREFERRED_MODE = stringPreferencesKey("preferred_mode")
         val SOURCE_LANGUAGE = stringPreferencesKey("source_language")
         val TARGET_LANGUAGE = stringPreferencesKey("target_language")
         val OVERLAY_STYLE = stringPreferencesKey("overlay_style")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
+        val APP_TEXT_SIZE = stringPreferencesKey("app_text_size")
+        val TRANSLATION_TEXT_SIZE = stringPreferencesKey("translation_text_size")
+        val CONVERSATION_LAYOUT = stringPreferencesKey("conversation_layout")
         val SUPPORTED_LANGUAGES = setOf("en", "es", "it", "fr", "pt")
         val SUPPORTED_TARGET_LANGUAGES = setOf("pt", "en", "es", "it", "fr")
+
+        inline fun <reified T : Enum<T>> enumOrDefault(value: String?, default: T): T =
+            value?.let { stored -> enumValues<T>().firstOrNull { it.name == stored } } ?: default
     }
 }

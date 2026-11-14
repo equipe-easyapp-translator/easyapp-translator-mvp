@@ -8,6 +8,16 @@ enum class ConversationSpeaker { USER_PORTUGUESE, INTERLOCUTOR }
 
 data class OfflineVoiceOption(val id: String, val label: String, val languageTag: String)
 
+/** Um turno concluído (FR-031). Só em memória; some com [ConversationStateHolder.clear]. */
+data class ConversationTurn(
+    val id: Long,
+    val speaker: ConversationSpeaker,
+    val original: String,
+    val translated: String,
+    val inputLanguage: String,
+    val outputLanguage: String,
+)
+
 data class ConversationSnapshot(
     val speaker: ConversationSpeaker = ConversationSpeaker.USER_PORTUGUESE,
     val sourceLanguage: String = "en",
@@ -27,6 +37,7 @@ data class ConversationSnapshot(
     val offlineSpeechAvailable: Boolean = false,
     val speechRecognizerAvailable: Boolean = false,
     val offlineTtsAvailable: Boolean = false,
+    val turns: List<ConversationTurn> = emptyList(),
 )
 
 object ConversationStateHolder {
