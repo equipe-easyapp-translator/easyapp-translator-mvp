@@ -80,11 +80,11 @@
 
 ## Fase 9 — História P2: traduzir a tela no lugar do texto, por botão
 
-- [ ] T051 Adicionar a preferência de estilo (`No lugar do texto` / `Janela flutuante`) no setup do modo Tela e guardar no DataStore.
-- [ ] T052 No estilo "No lugar do texto", manter a captura ativa sem OCR contínuo e ler um único quadro quando o usuário tocar em Traduzir, depois de esconder as janelas do próprio app.
-- [ ] T053 Guardar a posição de cada linha do OCR, converter da resolução da captura para a da tela e amostrar a cor de fundo e a cor de texto em volta de cada linha.
-- [ ] T054 Traduzir as linhas do quadro (Claude em lote no modo Qualidade com chave; ML Kit no resto), com cache por linha na sessão e sem cobrir linhas que já estão no idioma de destino.
-- [ ] T055 Desenhar a camada de tela cheia, que fecha ao primeiro toque (FR-026), com cada tradução ajustada ao tamanho da linha original.
-- [ ] T056 Mostrar o botão flutuante e arrastável com Traduzir/Limpar, o estado ("Lendo a tela…", "Traduzindo…") e Parar.
-- [ ] T057 Esconder a camada quando o conteúdo da tela mudar (rolagem, mensagem nova, troca de app), sem disparar ao arrastar o botão.
-- [ ] T058 Validar no aparelho com WhatsApp e navegador: alinhamento com barra de status e entalhe, tema claro/escuro do app de origem, textos longos e rolagem.
+- [x] T051 Adicionar a preferência de estilo (`No lugar do texto` / `Janela flutuante`) no setup do modo Tela e guardar no DataStore.
+- [x] T052 No estilo "No lugar do texto", manter a captura ativa sem OCR contínuo e ler um único quadro quando o usuário tocar em Traduzir, depois de esconder as janelas do próprio app.
+- [x] T053 Guardar a posição de cada linha do OCR, converter da resolução da captura para a da tela e amostrar a cor de fundo e a cor de texto em volta de cada linha.
+- [x] T054 Traduzir as linhas do quadro (Claude em lote no modo Qualidade com chave; ML Kit no resto), com cache por linha na sessão e sem cobrir linhas que já estão no idioma de destino.
+- [x] T055 Desenhar a camada de tela cheia, que fecha ao primeiro toque (FR-026), com cada tradução ajustada ao tamanho da linha original.
+- [x] T056 Mostrar o botão flutuante e arrastável com Traduzir/Limpar, o estado ("Lendo a tela…", "Traduzindo…") e Parar.
+- [x] T057 Esconder a camada quando o conteúdo da tela mudar (rolagem, mensagem nova, troca de app), sem disparar ao arrastar o botão.
+- [ ] T058 (T051–T057 estão implementadas e compilam, run 43532819425; só contam como validadas depois deste teste.) Validar no aparelho com WhatsApp e navegador: alinhamento com barra de status e entalhe, tema claro/escuro do app de origem, textos longos e rolagem.
