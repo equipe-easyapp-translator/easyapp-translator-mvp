@@ -179,7 +179,7 @@ private fun LanguageSlot(title: String, code: String, onClick: () -> Unit, modif
     ) {
         Text(title.uppercase(), style = EasyTheme.type.label, color = colors.textMuted, maxLines = 1)
         Text(
-            choice.label,
+            "${choice.flag} ${choice.label}",
             style = EasyTheme.type.rowTitle.copy(fontSize = EasyTheme.type.screenTitle.fontSize * 0.9f),
             color = colors.text,
             maxLines = 1,

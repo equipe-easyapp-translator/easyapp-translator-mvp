@@ -26,6 +26,15 @@ enum class AppLanguage(val tag: String) {
     ENGLISH("en"),
     ;
 
+    /** 📱 para "Sistema" (segue o celular); a bandeira da variante usada nos outros. */
+    val flag: String
+        get() = when (this) {
+            SYSTEM -> "📱"
+            PORTUGUESE -> "🇧🇷"
+            ITALIAN -> "🇮🇹"
+            ENGLISH -> "🇺🇸"
+        }
+
     val label: String
         get() = when (this) {
             SYSTEM -> com.easyapp.translator.str(com.easyapp.translator.R.string.theme_system)

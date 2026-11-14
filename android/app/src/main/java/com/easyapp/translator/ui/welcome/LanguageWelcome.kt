@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -86,10 +89,12 @@ fun LanguageWelcomePage(current: AppLanguage, onConfirm: (AppLanguage) -> Unit) 
     val colors = EasyTheme.colors
     var selected by remember { mutableStateOf(current) }
     Column(Modifier.fillMaxSize().background(colors.paper)) {
+        // Esta tela fica fora do Scaffold principal, então reserva ela mesma o espaço das barras do sistema.
         Column(
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Space.lg, vertical = Space.xl),
             verticalArrangement = Arrangement.spacedBy(Space.md),
@@ -114,7 +119,14 @@ fun LanguageWelcomePage(current: AppLanguage, onConfirm: (AppLanguage) -> Unit) 
             Hint("Você pode trocar depois em Ajustes · Puoi cambiarla in Impostazioni · You can change it later in Settings")
         }
         HorizontalDivider(color = colors.line)
-        Box(Modifier.fillMaxWidth().background(colors.surface).padding(horizontal = Space.lg, vertical = Space.md)) {
+        // O fundo da barra vai até a borda; o botão fica acima dos botões de navegação do Android.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .background(colors.surface)
+                .navigationBarsPadding()
+                .padding(horizontal = Space.lg, vertical = Space.md),
+        ) {
             EasyButton(continueLabel(selected), { onConfirm(selected) }, Modifier.fillMaxWidth())
         }
     }
@@ -134,6 +146,8 @@ private fun LanguageOptionRow(language: AppLanguage, selected: Boolean, onClick:
             .padding(horizontal = Space.md, vertical = Space.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Text(language.flag, style = EasyTheme.type.screenTitle)
+        Spacer(Modifier.width(Space.md))
         Text(optionTitle(language), Modifier.weight(1f), style = EasyTheme.type.rowTitle, color = colors.text)
         if (selected) {
             Spacer(Modifier.width(Space.sm))
@@ -147,7 +161,7 @@ private fun LanguageOptionRow(language: AppLanguage, selected: Boolean, onClick:
 fun ApplyingLanguageScreen(language: AppLanguage) {
     val colors = EasyTheme.colors
     Column(
-        Modifier.fillMaxSize().background(colors.paper).padding(Space.xl),
+        Modifier.fillMaxSize().background(colors.paper).safeDrawingPadding().padding(Space.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {

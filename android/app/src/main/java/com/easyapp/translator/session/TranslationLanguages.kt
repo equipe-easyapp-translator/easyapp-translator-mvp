@@ -8,7 +8,8 @@ import com.easyapp.translator.str
  * [label]: nome em português (interface). [nativeName]: nome no próprio idioma,
  * para quem não lê português reconhecer o seu na lista (persona Marco).
  */
-data class LanguageChoice(val code: String, private val labelRes: Int, val tag: String, val nativeName: String) {
+/** [flag]: bandeira (emoji) do país da variante usada pelo app: pt-BR, en-US, es-ES, it-IT, fr-FR. */
+data class LanguageChoice(val code: String, private val labelRes: Int, val tag: String, val nativeName: String, val flag: String) {
     /** Nome no idioma da interface. */
     val label: String get() = str(labelRes)
 
@@ -18,19 +19,19 @@ data class LanguageChoice(val code: String, private val labelRes: Int, val tag: 
 
 object TranslationLanguages {
     val sourceChoices = listOf(
-        LanguageChoice("en", R.string.lang_en, "en-US", "English"),
-        LanguageChoice("es", R.string.lang_es, "es-ES", "Español"),
-        LanguageChoice("it", R.string.lang_it, "it-IT", "Italiano"),
-        LanguageChoice("fr", R.string.lang_fr, "fr-FR", "Français"),
-        LanguageChoice("pt", R.string.lang_pt, "pt-BR", "Português"),
+        LanguageChoice("en", R.string.lang_en, "en-US", "English", "🇺🇸"),
+        LanguageChoice("es", R.string.lang_es, "es-ES", "Español", "🇪🇸"),
+        LanguageChoice("it", R.string.lang_it, "it-IT", "Italiano", "🇮🇹"),
+        LanguageChoice("fr", R.string.lang_fr, "fr-FR", "Français", "🇫🇷"),
+        LanguageChoice("pt", R.string.lang_pt, "pt-BR", "Português", "🇧🇷"),
     )
 
     val targetChoices = listOf(
-        LanguageChoice("pt", R.string.lang_pt, "pt-BR", "Português"),
-        LanguageChoice("en", R.string.lang_en, "en-US", "English"),
-        LanguageChoice("es", R.string.lang_es, "es-ES", "Español"),
-        LanguageChoice("it", R.string.lang_it, "it-IT", "Italiano"),
-        LanguageChoice("fr", R.string.lang_fr, "fr-FR", "Français"),
+        LanguageChoice("pt", R.string.lang_pt, "pt-BR", "Português", "🇧🇷"),
+        LanguageChoice("en", R.string.lang_en, "en-US", "English", "🇺🇸"),
+        LanguageChoice("es", R.string.lang_es, "es-ES", "Español", "🇪🇸"),
+        LanguageChoice("it", R.string.lang_it, "it-IT", "Italiano", "🇮🇹"),
+        LanguageChoice("fr", R.string.lang_fr, "fr-FR", "Français", "🇫🇷"),
     )
 
     fun mlKitCode(code: String): String? = when (code) {

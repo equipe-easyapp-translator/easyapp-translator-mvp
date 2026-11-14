@@ -95,7 +95,7 @@ fun LanguagePage(
                         Modifier.size(40.dp).clip(Radius.icon).background(if (selected) colors.surface else colors.surfaceAlt),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(option.code.uppercase(), style = EasyTheme.type.label, color = if (selected) colors.brand else colors.textBody)
+                        Text(option.flag, style = EasyTheme.type.screenTitle)
                     }
                     Spacer(Modifier.width(Space.md))
                     Column(Modifier.weight(1f)) {

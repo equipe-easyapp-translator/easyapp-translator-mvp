@@ -71,7 +71,7 @@ fun SettingsPage(
                 selected = state.appLanguage,
                 onSelect = onChangeLanguage,
                 optionDescription = { str(R.string.cd_app_language, it.label) },
-            ) { it.label }
+            ) { "${it.flag}\n${it.label}" }
             Hint(str(R.string.settings_language_hint))
         }
 
