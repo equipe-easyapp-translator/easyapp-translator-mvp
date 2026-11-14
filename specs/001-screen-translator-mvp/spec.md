@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-screen-translator-mvp`  
 **Criado**: 2026-11-06  
-**Atualizado**: 2026-11-13 — História 6 (tradução refinada e explicação com Claude, opcional)  
+**Atualizado**: 2026-11-13 — História 6 (tradução refinada e explicação com Claude, opcional) e História 7 (traduzir a tela no lugar do texto, por botão)  
 **Status**: Rascunho para validação  
 **Entrada**: Estruturar o MVP Android EasyApp / ScreenTranslator, unificando tradução de tela/apps e conversa presencial por voz.
 
@@ -97,6 +97,22 @@ Como usuário que precisa de uma tradução mais confiável que a tradução lin
 5. **Dado** que a sessão usa o Claude, **quando** o usuário abre o app, **então** vê os tokens usados e o custo estimado da sessão em US$.
 6. **Dado** que o usuário remove a chave, **quando** confirmar, **então** a chave é apagada do aparelho e o app volta ao processamento só local.
 
+### História 7 — Traduzir a tela no lugar do texto, com um botão (P2)
+
+Como usuário lendo uma conversa ou página em outro idioma (por exemplo, no WhatsApp), quero tocar num botão e ver o texto daquela tela trocado pela tradução no mesmo lugar, como o tradutor de páginas do navegador, para ler sem desviar o olhar para outra janela.
+
+**Base de produto**: a conversa de definição do produto (`App_tradutora IT.docx`) já cogitava a opção de a tradução "cobrir/substituir visualmente o texto original, dando a impressão de que o app traduziu a tela diretamente".
+
+**Teste independente**: Iniciar o modo Tela com o estilo "No lugar do texto", abrir uma conversa em inglês no WhatsApp, tocar em Traduzir e conferir que cada frase aparece traduzida sobre a original; rolar a conversa e conferir que a tradução some.
+
+**Cenários de aceitação**:
+
+1. **Dado** que a sessão está no estilo "No lugar do texto", **quando** o usuário toca em Traduzir, **então** o app lê a tela daquele instante e cobre cada linha reconhecida com a tradução, na mesma posição e com fundo e cor de texto parecidos com os originais.
+2. **Dado** que a tradução está na tela, **quando** o usuário toca em qualquer ponto, **então** a tradução some e o app de origem volta a responder normalmente aos toques.
+3. **Dado** que a tradução está na tela, **quando** o conteúdo da tela muda (rolagem, mensagem nova, troca de app), **então** a tradução some e o botão volta a oferecer Traduzir.
+4. **Dado** que uma linha já está no idioma de destino, **quando** a tela for traduzida, **então** essa linha não é coberta.
+5. **Dado** que o Claude está configurado e o modo é Qualidade, **quando** o usuário toca em Traduzir, **então** as linhas da tela vão juntas para o Claude, com contexto; sem Claude, a tradução é a do ML Kit.
+
 ## Limites do MVP
 
 Inclui um app Android EasyApp / ScreenTranslator com dois modos: (1) tela/apps, com OCR, detecção de mudanças, tradução em sobreposição e legendas de áudio de reprodução quando capturável; (2) conversa presencial por voz, com microfone, transcrição, tradução bidirecional PT-BR↔EN/ES e síntese de fala. Inclui modos de processamento, histórico efêmero e opção explícita para salvar uma tradução selecionada.
@@ -108,7 +124,7 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - **FR-001**: O sistema DEVE exigir início explícito da sessão e consentimentos/permissões do sistema necessários antes de capturar tela ou áudio.
 - **FR-002**: O sistema DEVE permitir parar a captura de forma visível e imediata, inclusive com sessão em segundo plano.
 - **FR-003**: O sistema DEVE reconhecer texto visível em inglês e espanhol e solicitar tradução para PT-BR.
-- **FR-004**: O sistema DEVE exibir o resultado como sobreposição sem substituir o conteúdo original.
+- **FR-004**: O sistema DEVE exibir o resultado como sobreposição, sem alterar o app de origem: numa janela flutuante ou cobrindo visualmente o texto original no mesmo lugar (História 7), à escolha do usuário. *(Alterado em 2026-11-13; a versão anterior previa só a janela.)*
 - **FR-005**: O sistema DEVE detectar mudanças relevantes e evitar OCR/tradução redundantes de conteúdo inalterado.
 - **FR-006**: O sistema DEVE remover traduções visuais quando o conteúdo original correspondente desaparecer ou mudar.
 - **FR-007**: No modo Tela e Apps, o sistema DEVE capturar áudio de reprodução somente quando o Android e o app de origem permitirem; não deve tentar contornar bloqueios.
@@ -129,6 +145,9 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - **FR-022**: O sistema DEVE oferecer "O que isso quer dizer?" ao tocar numa tradução da sobreposição, com chamada ao Claude apenas nesse toque.
 - **FR-023**: Qualquer falha do Claude DEVE cair para a tradução local do ML Kit, com aviso do motivo, sem encerrar a sessão (Princípio III).
 - **FR-024**: O sistema DEVE mostrar os tokens usados e o custo estimado da sessão, calculados a partir do consumo que a API devolve em cada resposta.
+- **FR-025**: No estilo "No lugar do texto", a leitura da tela DEVE acontecer só quando o usuário toca em Traduzir, sem OCR contínuo.
+- **FR-026**: A camada de tradução no lugar do texto NÃO DEVE prender o usuário: o primeiro toque em qualquer ponto a fecha e devolve o app de origem. *(Decisão técnica: o Android 12+ bloqueia toques que atravessam janelas sobrepostas opacas de outro app, então a camada não pode ser opaca e deixar o toque passar ao mesmo tempo; segue-se o comportamento do Google Lens.)*
+- **FR-027**: A camada DEVE sumir quando o conteúdo da tela mudar, para nunca mostrar tradução sobre um texto que já não está ali.
 
 ## Requisitos não funcionais
 
@@ -151,6 +170,7 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - Usuário fecha a sessão antes de uma resposta de tradução chegar.
 - Chave de API inválida, revogada, sem crédito ou com limite de gasto mensal atingido.
 - Tela com dado sensível (banco, senha, mensagens privadas) no modo Qualidade com Claude; apps com `FLAG_SECURE` já aparecem em preto, mas outros não.
+- No estilo "No lugar do texto": tradução bem mais longa que o original, texto sobre foto ou degradê, emojis no meio da frase, conteúdo animado (GIF, vídeo, "digitando…") que faz a tradução sumir sozinha, teclado aberto e rotação da tela.
 
 ## Dados e entidades
 
@@ -188,3 +208,4 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - A estimativa inicial é uma ordem de grandeza em USD documentada em `research.md`, não preço final nem medição.
 - No MVP, cada pessoa usa a própria chave de API da Anthropic, sem backend da equipe. Distribuir o app para usuários sem chave exigiria um backend que guarde a chave, o que fica fora do MVP.
 - O Claude entra só no modo Tela (Qualidade e "O que isso quer dizer?"). A conversa por voz continua 100% local nesta versão.
+- No estilo "No lugar do texto", "O que isso quer dizer?" e as legendas de áudio de outros apps não estão disponíveis nesta versão: a camada deixa os toques passarem, e as legendas dependem da janela flutuante.

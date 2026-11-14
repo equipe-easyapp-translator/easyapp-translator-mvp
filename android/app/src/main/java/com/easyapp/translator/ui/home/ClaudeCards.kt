@@ -93,7 +93,7 @@ internal fun ClaudeSetupCard(
                 )
             }
             if (state.enabled && !qualitySelected) {
-                Hint("Selecione Qualidade no passo 3 para traduzir com o Claude. O toque para explicar funciona em qualquer modo.", color = colors.warn)
+                Hint("Selecione Qualidade acima para traduzir com o Claude. Na janela flutuante, o toque para explicar funciona em qualquer qualidade.", color = colors.warn)
             }
             state.testMessage?.let { Hint(it, color = if (it.startsWith("Funcionou")) colors.brand else colors.warn) }
             Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {

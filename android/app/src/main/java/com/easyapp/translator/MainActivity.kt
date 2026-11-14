@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.startForegroundService
 import androidx.lifecycle.lifecycleScope
+import com.easyapp.translator.data.OverlayStyle
 import com.easyapp.translator.data.UserPreferencesRepository
 import com.easyapp.translator.session.AppMode
 import com.easyapp.translator.session.AudioCaptionStateHolder
@@ -56,6 +57,7 @@ class MainActivity : ComponentActivity() {
     private var showPrivacyNotice by mutableStateOf(false)
     private val claudeKeyStore by lazy { ClaudeKeyStore(applicationContext) }
     private var claudeUiState by mutableStateOf(ClaudeUiState())
+    private var currentOverlayStyle = OverlayStyle.IN_PLACE
 
     private val runtimePermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -83,7 +85,13 @@ class MainActivity : ComponentActivity() {
             val startIntent = SessionService.startIntent(this, mode)
                 .putExtra(SessionService.EXTRA_RESULT_CODE, result.resultCode)
                 .putExtra(SessionService.EXTRA_RESULT_DATA, result.data)
-                .putExtra(SessionService.EXTRA_CAPTURE_INTERNAL_AUDIO, screenAudioCaptionsSelected && hasPermission(Manifest.permission.RECORD_AUDIO))
+                .putExtra(
+                    SessionService.EXTRA_CAPTURE_INTERNAL_AUDIO,
+                    // Legendas de áudio dependem da janela flutuante; no estilo "No lugar do texto" ficam desligadas.
+                    screenAudioCaptionsSelected &&
+                        currentOverlayStyle == OverlayStyle.FLOATING &&
+                        hasPermission(Manifest.permission.RECORD_AUDIO),
+                )
             runCatching { startForegroundService(this, startIntent) }
                 .onFailure { SessionStateHolder.stop("Não foi possível iniciar o serviço da sessão") }
         } else if (mode != null) {
@@ -103,6 +111,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             preferencesRepository.preferences.collect { preferences ->
                 SessionStateHolder.updateLanguages(preferences.sourceLanguage, preferences.targetLanguage)
+                currentOverlayStyle = preferences.overlayStyle
             }
         }
         setContent {
@@ -129,6 +138,7 @@ class MainActivity : ComponentActivity() {
                         lifecycleScope.launch { preferencesRepository.setLanguages(source, target) }
                     },
                     onQualitySelected = { quality -> lifecycleScope.launch { preferencesRepository.setQualityMode(quality) } },
+                    onOverlayStyleSelected = { style -> lifecycleScope.launch { preferencesRepository.setOverlayStyle(style) } },
                     onStartRequested = ::requestSessionStart,
                     onPauseRequested = { sendSessionAction(SessionService.ACTION_PAUSE) },
                     onResumeRequested = { sendSessionAction(SessionService.ACTION_RESUME) },

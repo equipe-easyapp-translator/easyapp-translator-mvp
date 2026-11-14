@@ -40,6 +40,12 @@ Os dados de conteúdo são efêmeros por padrão. Não persistir capturas ou áu
 
 - Idiomas habilitados, modo de qualidade padrão, voz PT-BR escolhida e preferências visuais da sobreposição.
 - `claudeConsentAccepted`: se o usuário aceitou o aviso de envio de texto ao Claude.
+- `overlayStyle`: `in_place` (cobrir o texto no lugar, por botão) ou `floating` (janela flutuante contínua).
+
+### PlacedTranslation
+
+- `bounds` (posição da linha na tela, em pixels da tela), `translatedText`, `backgroundColor`, `textColor`, `online`.
+- Só em memória, enquanto a camada estiver visível; descartado ao sumir a camada ou encerrar a sessão.
 
 ### ClaudeCredential
 

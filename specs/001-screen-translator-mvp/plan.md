@@ -36,6 +36,7 @@ Construir um único aplicativo Android EasyApp / ScreenTranslator com dois modos
 5. Ciclo de vida, controles, seleção de vozes, degradação gradual e descarte de dados temporários nos dois modos.
 6. Modos Econômico/Equilibrado/Qualidade; a rota remota exige consentimento, política de retenção e gestão segura de credenciais. Implementada com o Claude Haiku 5.5 (Fase 8 de `tasks.md`): chave do usuário no Android Keystore, consentimento explícito, só texto enviado, fallback para o ML Kit e contador de custo.
 7. Avaliação de compatibilidade, privacidade, qualidade, latência, bateria, tráfego e custos nos aparelhos/cenários definidos em `research.md`.
+8. Estilo "No lugar do texto" (História 7, Fase 9 de `tasks.md`): um botão flutuante lê um único quadro, e uma camada de tela cheia que não recebe toques cobre cada linha com a tradução, na mesma posição. A captura vê as próprias janelas do app, então elas são escondidas antes de ler o quadro, e a camada usa `FLAG_SECURE` para não ser lida de volta; ela some quando a tela muda. Ler por toque, e não continuamente, também economiza bateria e tokens.
 
 ## Estrutura de projeto proposta
 

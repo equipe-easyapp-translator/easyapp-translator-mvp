@@ -17,6 +17,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.view.WindowManager
 import com.easyapp.translator.MainActivity
+import com.easyapp.translator.data.OverlayStyle
 import com.easyapp.translator.data.UserPreferencesRepository
 import com.easyapp.translator.translation.ClaudeKeyStore
 import com.easyapp.translator.translation.ClaudeResult
@@ -46,6 +47,8 @@ class SessionService : Service() {
     private var activeAudioCaption: ScreenTranslation? = null
     private var audioCaptionExpiry: Runnable? = null
     private var claude: ClaudeTranslator? = null
+    private var inPlacePipeline: InPlaceSnapshotPipeline? = null
+    private var inPlaceOverlay: InPlaceOverlayController? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -70,6 +73,8 @@ class SessionService : Service() {
                 activeAudioCaption = null
                 conversationEngine?.pause()
                 overlay?.show(emptyList(), "Sessão pausada")
+                inPlacePipeline?.pause()
+                inPlaceOverlay?.setPaused(true)
                 SessionStateHolder.pause()
                 updateNotification()
             }
@@ -81,6 +86,8 @@ class SessionService : Service() {
                     ConversationStateHolder.update { it.copy(status = "Conversa retomada. Escolha quem fala e inicie um turno.") }
                 }
                 overlay?.show(emptyList(), "Aguardando texto na tela…")
+                inPlacePipeline?.resume()
+                inPlaceOverlay?.setPaused(false)
                 updateNotification()
             }
             ACTION_CONVERSATION_LISTEN -> mainHandler.post {
@@ -185,6 +192,10 @@ class SessionService : Service() {
         conversationEngine = null
         overlay?.hide()
         overlay = null
+        inPlacePipeline?.close()
+        inPlacePipeline = null
+        inPlaceOverlay?.hide()
+        inPlaceOverlay = null
         closeClaude()
         // O consumo é zerado ao encerrar (FR-024); o total fica só na mensagem final.
         val usage = ClaudeUsageHolder.usage.value
@@ -271,6 +282,10 @@ class SessionService : Service() {
         conversationEngine = null
         overlay?.hide()
         overlay = null
+        inPlacePipeline?.close()
+        inPlacePipeline = null
+        inPlaceOverlay?.hide()
+        inPlaceOverlay = null
         closeClaude()
         serviceScope.cancel()
         val projection = mediaProjection
@@ -284,6 +299,74 @@ class SessionService : Service() {
 
     private fun startScreenPipeline() {
         val activeProjection = mediaProjection ?: return
+        serviceScope.launch {
+            val style = UserPreferencesRepository(applicationContext).preferences.first().overlayStyle
+            if (ending) return@launch
+            if (style == OverlayStyle.IN_PLACE) startInPlacePipeline(activeProjection) else startFloatingPipeline(activeProjection)
+        }
+    }
+
+    /** Estilo "No lugar do texto" (História 7): só lê a tela quando o usuário toca em Traduzir. */
+    private fun startInPlacePipeline(activeProjection: MediaProjection) {
+        val windowManager = getSystemService(WindowManager::class.java)
+        var pipelineRef: InPlaceSnapshotPipeline? = null
+        val controller = InPlaceOverlayController(
+            context = this,
+            windowManager = windowManager,
+            onTranslate = {
+                val currentController = inPlaceOverlay
+                pipelineRef?.requestSnapshot { currentController?.hideForCapture() }
+            },
+            onCleared = { pipelineRef?.stopWatching() },
+            onStop = { startService(controlIntent(this, ACTION_STOP)) },
+            onDragStarted = { pipelineRef?.holdWatch() },
+            onDragEnded = { pipelineRef?.releaseWatch() },
+        )
+        inPlaceOverlay = controller
+        serviceScope.launch {
+            val preferences = UserPreferencesRepository(applicationContext)
+            var settings = preferences.preferences.first()
+            SessionStateHolder.updateTranslationModelStatus(
+                "${TranslationLanguages.choice(settings.sourceLanguage).label} → ${TranslationLanguages.choice(settings.targetLanguage).label}: toque em Traduzir no botão flutuante.",
+            )
+            val pipeline = InPlaceSnapshotPipeline(
+                windowManager = windowManager,
+                projection = activeProjection,
+                initialSourceLanguage = settings.sourceLanguage,
+                initialTargetLanguage = settings.targetLanguage,
+                initialQualityMode = settings.qualityMode.name,
+                claude = claude,
+                onStatus = { message -> if (!ending) inPlaceOverlay?.setStatus(message) },
+                onTranslated = { items, message -> if (!ending) inPlaceOverlay?.showTranslations(items, message) },
+                onScreenChanged = { if (!ending) inPlaceOverlay?.onScreenChanged() },
+            )
+            pipelineRef = pipeline
+            inPlacePipeline = pipeline
+            if (SessionStateHolder.snapshot.value.status == SessionStatus.ACTIVE && !ending) {
+                try {
+                    pipeline.start()
+                    controller.show()
+                    launch {
+                        preferences.preferences
+                            .distinctUntilChanged()
+                            .collect { updated ->
+                                SessionStateHolder.updateLanguages(updated.sourceLanguage, updated.targetLanguage)
+                                if (updated != settings) {
+                                    pipeline.updateConfiguration(updated.sourceLanguage, updated.targetLanguage, updated.qualityMode.name)
+                                }
+                                settings = updated
+                            }
+                    }
+                } catch (_: RuntimeException) {
+                    stopSession("Não foi possível iniciar a captura da tela")
+                }
+            } else {
+                pipeline.close()
+            }
+        }
+    }
+
+    private fun startFloatingPipeline(activeProjection: MediaProjection) {
         val windowManager = getSystemService(WindowManager::class.java)
         val overlayController = TranslationOverlayController(
             this,

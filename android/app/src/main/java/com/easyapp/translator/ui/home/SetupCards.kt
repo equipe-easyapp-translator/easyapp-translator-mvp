@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.easyapp.translator.PermissionUiState
 import com.easyapp.translator.R
+import com.easyapp.translator.data.OverlayStyle
 import com.easyapp.translator.data.QualityMode
 import com.easyapp.translator.session.AppMode
 import com.easyapp.translator.session.LanguageChoice
@@ -76,6 +77,31 @@ internal fun ModeCard(mode: AppMode, selected: Boolean, onSelect: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** Como a tradução do modo Tela aparece (História 7 / FR-004). */
+@Composable
+internal fun OverlayStyleCard(selected: OverlayStyle, onSelected: (OverlayStyle) -> Unit) {
+    EasyCard {
+        Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
+            OverlayStyle.entries.forEach { style ->
+                EasyChip(
+                    label = style.label,
+                    selected = selected == style,
+                    onClick = { onSelected(style) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        Hint(
+            when (selected) {
+                OverlayStyle.IN_PLACE ->
+                    "Um botão flutuante traduz a tela na hora, cobrindo cada frase com a tradução, como o tradutor do navegador. Toque na tela para voltar ao original."
+                OverlayStyle.FLOATING ->
+                    "Uma janela flutuante mostra as traduções o tempo todo e acompanha a tela sozinha. Permite tocar numa frase para explicar e legendar o áudio."
+            },
+        )
     }
 }
 

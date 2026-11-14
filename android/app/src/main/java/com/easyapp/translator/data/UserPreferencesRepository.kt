@@ -14,11 +14,18 @@ enum class QualityMode(val label: String) {
     QUALITY("Qualidade"),
 }
 
+/** Como a tradução do modo Tela aparece (FR-004). */
+enum class OverlayStyle(val label: String) {
+    IN_PLACE("No lugar do texto"),
+    FLOATING("Janela flutuante"),
+}
+
 data class UserPreferences(
     val qualityMode: QualityMode = QualityMode.BALANCED,
     val preferredMode: AppMode = AppMode.SCREEN,
     val sourceLanguage: String = "en",
     val targetLanguage: String = "pt",
+    val overlayStyle: OverlayStyle = OverlayStyle.IN_PLACE,
 ) {
     companion object {
         val DEFAULT = UserPreferences()
@@ -41,11 +48,18 @@ class UserPreferencesRepository(context: Context) {
                 ?: AppMode.SCREEN,
             sourceLanguage = stored[SOURCE_LANGUAGE]?.takeIf { it in SUPPORTED_LANGUAGES } ?: "en",
             targetLanguage = stored[TARGET_LANGUAGE]?.takeIf { it in SUPPORTED_TARGET_LANGUAGES } ?: "pt",
+            overlayStyle = stored[OVERLAY_STYLE]
+                ?.let { value -> OverlayStyle.entries.firstOrNull { it.name == value } }
+                ?: OverlayStyle.IN_PLACE,
         )
     }
 
     suspend fun setQualityMode(mode: QualityMode) {
         dataStore.edit { it[QUALITY_MODE] = mode.name }
+    }
+
+    suspend fun setOverlayStyle(style: OverlayStyle) {
+        dataStore.edit { it[OVERLAY_STYLE] = style.name }
     }
 
     suspend fun setPreferredMode(mode: AppMode) {
@@ -66,6 +80,7 @@ class UserPreferencesRepository(context: Context) {
         val PREFERRED_MODE = stringPreferencesKey("preferred_mode")
         val SOURCE_LANGUAGE = stringPreferencesKey("source_language")
         val TARGET_LANGUAGE = stringPreferencesKey("target_language")
+        val OVERLAY_STYLE = stringPreferencesKey("overlay_style")
         val SUPPORTED_LANGUAGES = setOf("en", "es", "it", "fr", "pt")
         val SUPPORTED_TARGET_LANGUAGES = setOf("pt", "en", "es", "it", "fr")
     }

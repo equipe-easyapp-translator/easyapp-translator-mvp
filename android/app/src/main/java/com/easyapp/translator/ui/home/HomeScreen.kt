@@ -30,6 +30,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.easyapp.translator.PermissionUiState
 import com.easyapp.translator.R
+import com.easyapp.translator.data.OverlayStyle
 import com.easyapp.translator.data.QualityMode
 import com.easyapp.translator.data.UserPreferences
 import com.easyapp.translator.session.AppMode
@@ -66,6 +67,7 @@ fun HomeScreen(
     onModeSelected: (AppMode) -> Unit,
     onLanguagesSelected: (String, String) -> Unit,
     onQualitySelected: (QualityMode) -> Unit,
+    onOverlayStyleSelected: (OverlayStyle) -> Unit,
     onStartRequested: (AppMode) -> Unit,
     onPauseRequested: () -> Unit,
     onResumeRequested: () -> Unit,
@@ -113,7 +115,11 @@ fun HomeScreen(
                 ModeCard(mode = mode, selected = preferences.preferredMode == mode, onSelect = { onModeSelected(mode) })
             }
             if (preferences.preferredMode == AppMode.SCREEN) {
-                ScreenAudioCaptionsOption(selected = screenAudioCaptionsSelected, onSelected = onScreenAudioCaptionsSelected)
+                Overline("Como mostrar a tradução")
+                OverlayStyleCard(preferences.overlayStyle, onOverlayStyleSelected)
+                if (preferences.overlayStyle == OverlayStyle.FLOATING) {
+                    ScreenAudioCaptionsOption(selected = screenAudioCaptionsSelected, onSelected = onScreenAudioCaptionsSelected)
+                }
             }
 
             StepTitle(2, "Idiomas")
@@ -173,14 +179,23 @@ fun HomeScreen(
                     onVolumeChanged = onConversationVolumeChanged,
                 )
                 AppMode.SCREEN -> {
-                    InfoNote(
-                        title = "A tradução aparece na janela flutuante",
-                        body = "Abra o app que quer entender. Arraste a janela pelo título e toque nele para recolher ou expandir.",
-                        icon = R.drawable.ic_ui_smartphone,
-                        tone = Tone.Positive,
-                    )
+                    if (preferences.overlayStyle == OverlayStyle.IN_PLACE) {
+                        InfoNote(
+                            title = "Toque em Traduzir no botão flutuante",
+                            body = "Abra o app que quer entender (o WhatsApp, por exemplo) e toque em Traduzir: cada frase é coberta pela tradução. Toque na tela para voltar ao original; se a tela mudar, a tradução some sozinha.",
+                            icon = R.drawable.ic_ui_smartphone,
+                            tone = Tone.Positive,
+                        )
+                    } else {
+                        InfoNote(
+                            title = "A tradução aparece na janela flutuante",
+                            body = "Abra o app que quer entender. Arraste a janela pelo título e toque nele para recolher ou expandir.",
+                            icon = R.drawable.ic_ui_smartphone,
+                            tone = Tone.Positive,
+                        )
+                    }
                     if (claude.usable) ClaudeUsageCard(claudeUsage)
-                    if (screenAudioCaptionsSelected) {
+                    if (screenAudioCaptionsSelected && preferences.overlayStyle == OverlayStyle.FLOATING) {
                         AudioCaptionsCard(audioCaptions, session.status == SessionStatus.ACTIVE, onClearAudioCaptions)
                     }
                 }
@@ -215,7 +230,7 @@ fun HomeScreen(
         val mode = preferences.preferredMode
         StartExplanationDialog(
             mode = mode,
-            audioCaptionsSelected = screenAudioCaptionsSelected,
+            audioCaptionsSelected = screenAudioCaptionsSelected && preferences.overlayStyle == OverlayStyle.FLOATING,
             onConfirm = {
                 showStartExplanation = false
                 onStartRequested(mode)

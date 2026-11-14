@@ -77,3 +77,14 @@
 - [x] T048 Indicar na sobreposição quando a tradução é online e implementar "O que isso quer dizer?" ao tocar numa linha.
 - [x] T049 Somar tokens e custo estimado da sessão a partir do `usage` de cada resposta e mostrar no app; zerar ao encerrar.
 - [ ] T050 (T044–T049 estão implementadas e compilam, mas só contam como validadas depois deste teste.) Validar no aparelho: com e sem chave, sem internet, chave inválida e comparação de qualidade com o ML Kit; registrar custo real da sessão (alimenta T038).
+
+## Fase 9 — História P2: traduzir a tela no lugar do texto, por botão
+
+- [ ] T051 Adicionar a preferência de estilo (`No lugar do texto` / `Janela flutuante`) no setup do modo Tela e guardar no DataStore.
+- [ ] T052 No estilo "No lugar do texto", manter a captura ativa sem OCR contínuo e ler um único quadro quando o usuário tocar em Traduzir, depois de esconder as janelas do próprio app.
+- [ ] T053 Guardar a posição de cada linha do OCR, converter da resolução da captura para a da tela e amostrar a cor de fundo e a cor de texto em volta de cada linha.
+- [ ] T054 Traduzir as linhas do quadro (Claude em lote no modo Qualidade com chave; ML Kit no resto), com cache por linha na sessão e sem cobrir linhas que já estão no idioma de destino.
+- [ ] T055 Desenhar a camada de tela cheia, que fecha ao primeiro toque (FR-026), com cada tradução ajustada ao tamanho da linha original.
+- [ ] T056 Mostrar o botão flutuante e arrastável com Traduzir/Limpar, o estado ("Lendo a tela…", "Traduzindo…") e Parar.
+- [ ] T057 Esconder a camada quando o conteúdo da tela mudar (rolagem, mensagem nova, troca de app), sem disparar ao arrastar o botão.
+- [ ] T058 Validar no aparelho com WhatsApp e navegador: alinhamento com barra de status e entalhe, tema claro/escuro do app de origem, textos longos e rolagem.

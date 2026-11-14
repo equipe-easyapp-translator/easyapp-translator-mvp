@@ -48,7 +48,7 @@ internal fun StartExplanationDialog(
             "As legendas de áudio que você ativou usam o microfone e exigem Android 13 ou superior. Alguns apps bloqueiam a captura do som; nesses casos a tradução do texto continua funcionando.",
         )
         else -> listOf(
-            "O Android vai pedir autorização para compartilhar a tela. O texto visível é lido e traduzido no aparelho, e a tradução aparece numa janela flutuante.",
+            "O Android vai pedir autorização para compartilhar a tela. O texto visível é lido e traduzido, e a tradução aparece sobre a tela, no estilo que você escolheu.",
             "Apps com proteção de conteúdo (como alguns de vídeo e banco) podem aparecer em preto e não ser traduzidos.",
         )
     }
