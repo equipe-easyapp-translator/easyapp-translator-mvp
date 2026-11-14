@@ -27,6 +27,7 @@ import com.easyapp.translator.data.QualityMode
 import com.easyapp.translator.data.TextSize
 import com.easyapp.translator.data.ThemeMode
 import com.easyapp.translator.ui.AppActions
+import com.easyapp.translator.ui.AppLanguage
 import com.easyapp.translator.ui.AppUiState
 import com.easyapp.translator.ui.components.AppMark
 import com.easyapp.translator.ui.components.ButtonKind
@@ -42,6 +43,7 @@ import com.easyapp.translator.ui.components.SettingRow
 import com.easyapp.translator.ui.theme.EasyTheme
 import com.easyapp.translator.ui.theme.Radius
 import com.easyapp.translator.ui.theme.Space
+import com.easyapp.translator.str
 
 /** Página de Ajustes (T063): aparência, padrões de cada modo, Claude, privacidade e sobre. */
 @Composable
@@ -51,88 +53,103 @@ fun SettingsPage(state: AppUiState, actions: AppActions, onOpenClaude: () -> Uni
 
     PageScaffold {
         PageHeader(
-            title = "Ajustes",
-            subtitle = "Deixe o EasyApp do jeito que é mais confortável para você. As mudanças valem na hora.",
+            title = str(R.string.tab_settings),
+            subtitle = str(R.string.settings_subtitle),
         )
 
-        SectionLabel("Aparência")
+        SectionLabel(str(R.string.settings_language))
         EasyCard {
-            Text("Tema", style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
+            if (state.appLanguageSelectable) {
+                SegmentedControl(
+                    options = AppLanguage.entries,
+                    selected = state.appLanguage,
+                    onSelect = actions::setAppLanguage,
+                    optionDescription = { str(R.string.cd_app_language, it.label) },
+                ) { it.label }
+                Hint(str(R.string.settings_language_hint))
+            } else {
+                Hint(str(R.string.settings_language_old))
+            }
+        }
+
+        SectionLabel(str(R.string.settings_appearance))
+        EasyCard {
+            Text(str(R.string.settings_theme), style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
             SegmentedControl(
                 options = ThemeMode.entries,
                 selected = prefs.themeMode,
                 onSelect = actions::setThemeMode,
-                optionDescription = { "Tema ${it.label}" },
+                optionDescription = { str(R.string.cd_theme, it.label) },
             ) { it.label }
             HorizontalDivider(Modifier.padding(vertical = Space.xs), color = EasyTheme.colors.divider)
-            Text("Tamanho do texto do app", style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
+            Text(str(R.string.settings_app_text), style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
             TextSizeControl(prefs.appTextSize, actions::setAppTextSize)
-            Hint("Prévia: este texto acompanha o tamanho escolhido.")
+            Hint(str(R.string.settings_preview))
         }
 
-        SectionLabel("Tradução sobre a tela")
+        SectionLabel(str(R.string.settings_overlay_section))
         EasyCard {
-            Text("Tamanho da tradução", style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
+            Text(str(R.string.settings_translation_size), style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
             TextSizeControl(prefs.translationTextSize, actions::setTranslationTextSize)
             TranslationPreview(prefs.translationTextSize)
             HorizontalDivider(Modifier.padding(vertical = Space.xs), color = EasyTheme.colors.divider)
-            Text("Estilo padrão", style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
+            Text(str(R.string.settings_default_style), style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
             SegmentedControl(
                 options = OverlayStyle.entries,
                 selected = prefs.overlayStyle,
                 onSelect = actions::setOverlayStyle,
-                optionDescription = { "Estilo ${it.label}" },
+                optionDescription = { str(R.string.cd_style, it.label) },
             ) { it.label }
-            Text("Qualidade padrão", style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
+            Text(str(R.string.settings_default_quality), style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
             SegmentedControl(
                 options = QualityMode.entries,
                 selected = prefs.qualityMode,
                 onSelect = actions::setQuality,
-                optionDescription = { "Qualidade ${it.label}" },
+                optionDescription = { str(R.string.cd_quality, it.label) },
             ) { it.label }
-            Hint("O tamanho e o estilo valem a partir da próxima sessão de tela.")
+            Hint(str(R.string.settings_next_session))
         }
 
-        SectionLabel("Conversa")
+        SectionLabel(str(R.string.tab_conversation))
         EasyCard {
-            Text("Disposição", style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
+            Text(str(R.string.settings_layout), style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
             SegmentedControl(
                 options = ConversationLayout.entries,
                 selected = prefs.conversationLayout,
                 onSelect = actions::setConversationLayout,
-                optionDescription = { "Conversa ${it.label}" },
+                optionDescription = { str(R.string.cd_layout, it.label) },
             ) { it.label }
-            Hint("Voz, velocidade e volume ficam no botão Voz durante a conversa, porque dependem das vozes instaladas.")
+            Hint(str(R.string.settings_voice_hint))
         }
 
-        SectionLabel("Inteligência artificial")
+        SectionLabel(str(R.string.section_ai))
         EasyCard {
             SettingRow(
                 title = "Claude",
                 subtitle = when {
-                    state.claude.usable -> "Ligado · chave ${state.claude.keyHint ?: "salva"}"
-                    state.claude.hasKey -> "Desligado · chave ${state.claude.keyHint ?: "salva"}"
-                    else -> "Não configurado"
+                    state.claude.usable -> str(R.string.settings_claude_on, state.claude.keyHint ?: str(R.string.claude_key_saved))
+                    state.claude.hasKey -> str(R.string.settings_claude_off, state.claude.keyHint ?: str(R.string.claude_key_saved))
+                    else -> str(R.string.settings_claude_none)
                 },
                 icon = R.drawable.ic_ui_sparkle,
                 onClick = onOpenClaude,
             )
         }
 
-        SectionLabel("Privacidade")
+        SectionLabel(str(R.string.settings_privacy))
         InfoNote(
-            title = "O que o EasyApp guarda",
-            body = "Só as suas escolhas desta página e, se você adicionar, a chave do Claude criptografada. Telas, áudio, conversas e traduções ficam na memória durante a sessão e somem ao parar.",
+            title = str(R.string.settings_stored_title),
+            body = str(R.string.settings_stored_body),
             icon = R.drawable.ic_ui_shield,
         )
         EasyButton(
-            "Restaurar ajustes padrão",
+            str(R.string.settings_reset),
             { confirmReset = true },
             Modifier.fillMaxWidth(),
             kind = ButtonKind.Outline,
         )
 
-        SectionLabel("Sobre")
+        SectionLabel(str(R.string.settings_about))
         EasyCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AppMark(size = 48)
@@ -140,13 +157,13 @@ fun SettingsPage(state: AppUiState, actions: AppActions, onOpenClaude: () -> Uni
                 Column(Modifier.weight(1f)) {
                     Text("EasyApp Translator", style = EasyTheme.type.rowTitle, color = EasyTheme.colors.text)
                     Text(
-                        if (state.appVersion.isBlank()) "MVP" else "Versão ${state.appVersion} · MVP",
+                        if (state.appVersion.isBlank()) "MVP" else str(R.string.settings_version, state.appVersion),
                         style = EasyTheme.type.meta,
                         color = EasyTheme.colors.textBody,
                     )
                 }
             }
-            Hint("Feito por Brayan, Carlos, Sante e Tiago Morocini. Tradução no aparelho com Google ML Kit; tradução refinada opcional com Claude, da Anthropic.")
+            Hint(str(R.string.settings_credits))
         }
     }
 
@@ -156,16 +173,16 @@ fun SettingsPage(state: AppUiState, actions: AppActions, onOpenClaude: () -> Uni
             onDismissRequest = { confirmReset = false },
             shape = Radius.sheet,
             containerColor = colors.surface,
-            title = { Text("Restaurar os ajustes?", style = EasyTheme.type.screenTitle, color = colors.text) },
+            title = { Text(str(R.string.settings_reset_title), style = EasyTheme.type.screenTitle, color = colors.text) },
             text = {
                 Text(
-                    "Tema, tamanhos, idiomas, estilo e qualidade voltam ao padrão. A chave do Claude não é apagada; para isso, use a página do Claude.",
+                    str(R.string.settings_reset_body),
                     style = EasyTheme.type.body,
                     color = colors.textBody,
                 )
             },
-            confirmButton = { EasyButton("Restaurar", { confirmReset = false; actions.resetPreferences() }) },
-            dismissButton = { EasyButton("Cancelar", { confirmReset = false }, kind = ButtonKind.Ghost) },
+            confirmButton = { EasyButton(str(R.string.action_restore), { confirmReset = false; actions.resetPreferences() }) },
+            dismissButton = { EasyButton(str(R.string.action_cancel), { confirmReset = false }, kind = ButtonKind.Ghost) },
         )
     }
 }
@@ -177,7 +194,7 @@ private fun TextSizeControl(selected: TextSize, onSelect: (TextSize) -> Unit) {
         options = TextSize.entries,
         selected = selected,
         onSelect = onSelect,
-        optionDescription = { "Tamanho ${it.label}" },
+        optionDescription = { str(R.string.cd_size, it.label) },
         optionSize = { (14f * it.scale).sp },
     ) { "A" }
 }
@@ -190,9 +207,9 @@ private fun TranslationPreview(size: TextSize) {
         Modifier.fillMaxWidth().clip(Radius.input).background(colors.surfaceAlt).padding(Space.md),
         verticalArrangement = Arrangement.spacedBy(Space.xs),
     ) {
-        Text("See you tomorrow at the station!", style = EasyTheme.type.meta, color = colors.textMuted)
+        Text(str(R.string.preview_source), style = EasyTheme.type.meta, color = colors.textMuted)
         Text(
-            "Te vejo amanhã na estação!",
+            str(R.string.preview_translation),
             modifier = Modifier.clip(Radius.chip).background(colors.ink).padding(horizontal = Space.sm, vertical = Space.xs),
             style = EasyTheme.type.body.copy(fontSize = (16f * size.scale).sp, lineHeight = (22f * size.scale).sp),
             color = colors.textOnInk,

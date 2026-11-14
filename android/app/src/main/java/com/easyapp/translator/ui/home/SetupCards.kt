@@ -24,6 +24,7 @@ import com.easyapp.translator.ui.components.StatusRow
 import com.easyapp.translator.ui.components.Tone
 import com.easyapp.translator.ui.theme.EasyTheme
 import com.easyapp.translator.ui.theme.Space
+import com.easyapp.translator.str
 
 /** Cartões de preparação compartilhados pelas páginas Tela e Conversa. */
 
@@ -34,8 +35,8 @@ internal fun ScreenAudioCaptionsOption(selected: Boolean, onSelected: (Boolean) 
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBubble(R.drawable.ic_ui_captions, size = 32.dp)
             Column(Modifier.weight(1f).padding(horizontal = Space.sm), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Legendas do áudio de outros apps", style = EasyTheme.type.rowTitle, color = colors.text)
-                Hint("Opcional. Funciona só quando o app de origem permite a captura; o texto da tela é traduzido de qualquer forma.")
+                Text(str(R.string.captions_option), style = EasyTheme.type.rowTitle, color = colors.text)
+                Hint(str(R.string.captions_option_hint))
             }
             Switch(
                 checked = selected,
@@ -63,20 +64,20 @@ internal fun PermissionsCard(
     val runtimeMissing = (needsMic && !state.recordAudioGranted) || (state.notificationsRequired && !state.notificationsGranted)
     val overlayMissing = mode == AppMode.SCREEN && !state.overlayGranted
     EasyCard {
-        CardHeader("Permissões", icon = R.drawable.ic_ui_shield)
-        if (needsMic) PermissionLine("Microfone", state.recordAudioGranted)
-        if (state.notificationsRequired) PermissionLine("Notificações (para parar a sessão)", state.notificationsGranted)
+        CardHeader(str(R.string.perm_title), icon = R.drawable.ic_ui_shield)
+        if (needsMic) PermissionLine(str(R.string.perm_mic), state.recordAudioGranted)
+        if (state.notificationsRequired) PermissionLine(str(R.string.perm_notif), state.notificationsGranted)
         if (mode == AppMode.SCREEN) {
-            PermissionLine("Aparecer sobre outros apps", state.overlayGranted)
-            Hint("A autorização para capturar a tela é pedida pelo Android ao iniciar.")
+            PermissionLine(str(R.string.perm_overlay), state.overlayGranted)
+            Hint(str(R.string.perm_capture_hint))
         }
         if (runtimeMissing || overlayMissing) {
             Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                 if (runtimeMissing) {
-                    EasyButton("Permitir", onRequestRuntime, Modifier.weight(1f), kind = ButtonKind.Tonal)
+                    EasyButton(str(R.string.action_allow), onRequestRuntime, Modifier.weight(1f), kind = ButtonKind.Tonal)
                 }
                 if (overlayMissing) {
-                    EasyButton("Abrir configuração", onOpenOverlaySettings, Modifier.weight(1f), kind = ButtonKind.Tonal)
+                    EasyButton(str(R.string.action_open_settings), onOpenOverlaySettings, Modifier.weight(1f), kind = ButtonKind.Tonal)
                 }
             }
         }
@@ -85,5 +86,5 @@ internal fun PermissionsCard(
 
 @Composable
 private fun PermissionLine(label: String, granted: Boolean) {
-    StatusRow(label, if (granted) "Concedida" else "Pendente", if (granted) Tone.Positive else Tone.Warning)
+    StatusRow(label, if (granted) str(R.string.perm_granted) else str(R.string.perm_pending), if (granted) Tone.Positive else Tone.Warning)
 }

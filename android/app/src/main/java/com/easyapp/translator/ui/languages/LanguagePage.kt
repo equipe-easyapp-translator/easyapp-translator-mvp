@@ -33,6 +33,7 @@ import com.easyapp.translator.ui.components.SubPageTopBar
 import com.easyapp.translator.ui.theme.EasyTheme
 import com.easyapp.translator.ui.theme.Radius
 import com.easyapp.translator.ui.theme.Space
+import com.easyapp.translator.str
 
 /** Qual lado do par está sendo escolhido. */
 enum class LanguageSide { SOURCE, TARGET }
@@ -103,18 +104,18 @@ fun LanguagePage(
                             if (option.label != option.nativeName) append(option.label)
                             if (isOther) {
                                 if (isNotEmpty()) append(" · ")
-                                append("está do outro lado; escolher inverte o par")
+                                append(str(R.string.lang_other_side))
                             }
                         }
                         if (subtitle.isNotEmpty()) Text(subtitle, style = EasyTheme.type.rowSub, color = colors.textMuted)
                     }
                     if (selected) {
-                        Icon(painterResource(R.drawable.ic_ui_check), contentDescription = "Selecionado", tint = colors.brand)
+                        Icon(painterResource(R.drawable.ic_ui_check), contentDescription = str(R.string.cd_selected), tint = colors.brand)
                     }
                 }
             }
             Spacer(Modifier.size(Space.sm))
-            Hint("Na primeira tradução, o modelo offline do par escolhido é baixado (cerca de 30 MB). Depois, funciona sem internet.")
+            Hint(str(R.string.lang_model_hint))
         }
     }
 }

@@ -44,12 +44,16 @@ import com.easyapp.translator.ui.screen.ScreenPage
 import com.easyapp.translator.ui.settings.ClaudePage
 import com.easyapp.translator.ui.settings.SettingsPage
 import com.easyapp.translator.ui.theme.EasyTheme
+import com.easyapp.translator.str
 
 /** Páginas de primeiro nível, na barra inferior (FR-028). */
-enum class Tab(val label: String, val icon: Int) {
-    SCREEN("Tela", R.drawable.ic_ui_smartphone),
-    CONVERSATION("Conversa", R.drawable.ic_ui_messages),
-    SETTINGS("Ajustes", R.drawable.ic_ui_settings),
+enum class Tab(private val labelRes: Int, val icon: Int) {
+    SCREEN(R.string.tab_screen, R.drawable.ic_ui_smartphone),
+    CONVERSATION(R.string.tab_conversation, R.drawable.ic_ui_messages),
+    SETTINGS(R.string.tab_settings, R.drawable.ic_ui_settings),
+    ;
+
+    val label: String get() = str(labelRes)
 }
 
 /** Páginas secundárias, abertas por cima de uma aba e fechadas com Voltar. */
@@ -142,16 +146,16 @@ fun AppRoot(state: AppUiState, actions: AppActions) {
                     Tab.SCREEN -> ScreenPage(
                         state = state,
                         actions = actions,
-                        onPickSource = { push(SubPage.Languages("Traduzir de", LanguageSide.SOURCE)) },
-                        onPickTarget = { push(SubPage.Languages("Traduzir para", LanguageSide.TARGET)) },
+                        onPickSource = { push(SubPage.Languages(str(R.string.lang_page_from), LanguageSide.SOURCE)) },
+                        onPickTarget = { push(SubPage.Languages(str(R.string.lang_page_to), LanguageSide.TARGET)) },
                         onOpenClaude = { push(SubPage.Claude) },
                     )
                     Tab.CONVERSATION -> ConversationPage(
                         state = state,
                         actions = actions,
                         // Na conversa, o seu idioma é o de destino e o da outra pessoa é o de origem.
-                        onPickYourLanguage = { push(SubPage.Languages("O seu idioma", LanguageSide.TARGET)) },
-                        onPickTheirLanguage = { push(SubPage.Languages("Idioma da outra pessoa", LanguageSide.SOURCE)) },
+                        onPickYourLanguage = { push(SubPage.Languages(str(R.string.lang_page_yours), LanguageSide.TARGET)) },
+                        onPickTheirLanguage = { push(SubPage.Languages(str(R.string.lang_page_theirs), LanguageSide.SOURCE)) },
                     )
                     Tab.SETTINGS -> SettingsPage(state, actions, onOpenClaude = { push(SubPage.Claude) })
                 }

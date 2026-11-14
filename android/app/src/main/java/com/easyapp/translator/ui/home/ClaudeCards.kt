@@ -36,6 +36,7 @@ import com.easyapp.translator.ui.theme.EasyTheme
 import com.easyapp.translator.ui.theme.Radius
 import com.easyapp.translator.ui.theme.Space
 import java.util.Locale
+import com.easyapp.translator.str
 
 /** Estado do Claude para a interface. A chave em si nunca chega aqui, só o final dela. */
 data class ClaudeUiState(
@@ -45,6 +46,8 @@ data class ClaudeUiState(
     val enabled: Boolean = true,
     val testing: Boolean = false,
     val testMessage: String? = null,
+    /** Resultado do último teste; decide a cor da mensagem sem depender do idioma do texto. */
+    val testSucceeded: Boolean = false,
 ) {
     val usable: Boolean get() = hasKey && consentAccepted && enabled
 }
@@ -66,21 +69,21 @@ internal fun ClaudeSetupCard(
     var confirmRemove by remember { mutableStateOf(false) }
 
     EasyCard {
-        CardHeader("Tradução refinada com Claude", icon = R.drawable.ic_ui_messages) {
+        CardHeader(str(R.string.claude_row_title), icon = R.drawable.ic_ui_messages) {
             when {
-                !state.hasKey -> StatusBadge("Opcional", Tone.Neutral)
-                state.usable -> StatusBadge("Ligado", Tone.Positive)
-                else -> StatusBadge("Desligado", Tone.Neutral)
+                !state.hasKey -> StatusBadge(str(R.string.badge_optional), Tone.Neutral)
+                state.usable -> StatusBadge(str(R.string.badge_on), Tone.Positive)
+                else -> StatusBadge(str(R.string.badge_off), Tone.Neutral)
             }
         }
         Hint(
-            "Traduz a tela com contexto, entende gírias e explica frases quando você toca nelas. " +
-                "Usa a sua própria chave da Anthropic e só funciona com internet; sem chave, tudo continua offline.",
+            str(R.string.claude_card_intro) +
+                "",
         )
         if (state.hasKey) {
-            StatusRow("Chave", state.keyHint ?: "salva", Tone.Positive)
+            StatusRow(str(R.string.claude_key_label), state.keyHint ?: str(R.string.claude_key_saved), Tone.Positive)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Usar no modo Qualidade", Modifier.weight(1f), style = EasyTheme.type.body, color = colors.textBody)
+                Text(str(R.string.claude_use_quality), Modifier.weight(1f), style = EasyTheme.type.body, color = colors.textBody)
                 Switch(
                     checked = state.enabled,
                     onCheckedChange = onEnabledChanged,
@@ -93,23 +96,23 @@ internal fun ClaudeSetupCard(
                 )
             }
             if (state.enabled && !qualitySelected) {
-                Hint("Para traduzir com o Claude, escolha a qualidade \"Qualidade\" na página Tela. Na janela flutuante, o toque para explicar funciona em qualquer qualidade.", color = colors.warn)
+                Hint(str(R.string.claude_choose_quality), color = colors.warn)
             }
-            state.testMessage?.let { Hint(it, color = if (it.startsWith("Funcionou")) colors.brand else colors.warn) }
+            state.testMessage?.let { Hint(it, color = if (state.testSucceeded) colors.brand else colors.warn) }
             Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
                 EasyButton(
-                    if (state.testing) "Testando…" else "Testar",
+                    if (state.testing) str(R.string.claude_testing) else str(R.string.claude_test),
                     onTest,
                     Modifier.weight(1f),
                     kind = ButtonKind.Tonal,
                     enabled = !state.testing,
                 )
-                EasyButton("Remover chave", { confirmRemove = true }, Modifier.weight(1f), kind = ButtonKind.Outline)
+                EasyButton(str(R.string.claude_remove), { confirmRemove = true }, Modifier.weight(1f), kind = ButtonKind.Outline)
             }
-            Hint("Dica: defina um limite de gasto mensal no Console da Anthropic (Settings → Limits).")
+            Hint(str(R.string.claude_tip_limit))
         } else {
             EasyButton(
-                "Adicionar minha chave",
+                str(R.string.claude_add_key),
                 { if (state.consentAccepted) showKeyEntry = true else showConsent = true },
                 Modifier.fillMaxWidth(),
                 kind = ButtonKind.Tonal,
@@ -141,10 +144,10 @@ internal fun ClaudeSetupCard(
             onDismissRequest = { confirmRemove = false },
             shape = Radius.sheet,
             containerColor = colors.surface,
-            title = { Text("Remover a chave?", style = EasyTheme.type.screenTitle, color = colors.text) },
-            text = { Text("A chave é apagada deste aparelho e o app volta a traduzir só offline.", style = EasyTheme.type.body, color = colors.textBody) },
-            confirmButton = { EasyButton("Remover", { confirmRemove = false; onRemoveKey() }) },
-            dismissButton = { EasyButton("Cancelar", { confirmRemove = false }, kind = ButtonKind.Ghost) },
+            title = { Text(str(R.string.claude_remove_title), style = EasyTheme.type.screenTitle, color = colors.text) },
+            text = { Text(str(R.string.claude_remove_body), style = EasyTheme.type.body, color = colors.textBody) },
+            confirmButton = { EasyButton(str(R.string.action_remove), { confirmRemove = false; onRemoveKey() }) },
+            dismissButton = { EasyButton(str(R.string.action_cancel), { confirmRemove = false }, kind = ButtonKind.Ghost) },
         )
     }
 }
@@ -157,19 +160,19 @@ private fun ClaudeConsentDialog(onAccept: () -> Unit, onDecline: () -> Unit) {
         onDismissRequest = onDecline,
         shape = Radius.sheet,
         containerColor = colors.surface,
-        title = { Text("Enviar texto para o Claude", style = EasyTheme.type.screenTitle, color = colors.text) },
+        title = { Text(str(R.string.consent_title), style = EasyTheme.type.screenTitle, color = colors.text) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Space.sm)) {
                 listOf(
-                    "Com o Claude ligado, o texto lido da tela (nunca a imagem nem o áudio) é enviado à Anthropic para ser traduzido ou explicado.",
-                    "A Anthropic apaga esses dados em até 30 dias e, por padrão, não os usa para treinar modelos.",
-                    "Evite usar o modo Qualidade em telas com senhas, dados bancários ou conversas privadas.",
-                    "O custo vai para a conta da sua chave. Com o Claude Haiku 5.5, uma hora de uso contínuo fica em torno de US$ 0,10 a 0,15.",
+                    str(R.string.consent_p1),
+                    str(R.string.consent_p2),
+                    str(R.string.consent_p3),
+                    str(R.string.consent_p4),
                 ).forEach { Text(it, style = EasyTheme.type.body, color = colors.textBody) }
             }
         },
-        confirmButton = { EasyButton("Entendi, continuar", onAccept) },
-        dismissButton = { EasyButton("Agora não", onDecline, kind = ButtonKind.Ghost) },
+        confirmButton = { EasyButton(str(R.string.consent_accept), onAccept) },
+        dismissButton = { EasyButton(str(R.string.action_not_now), onDecline, kind = ButtonKind.Ghost) },
     )
 }
 
@@ -182,11 +185,11 @@ private fun ClaudeKeyDialog(onSave: (String) -> Unit, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         shape = Radius.sheet,
         containerColor = colors.surface,
-        title = { Text("Sua chave da Anthropic", style = EasyTheme.type.screenTitle, color = colors.text) },
+        title = { Text(str(R.string.key_title), style = EasyTheme.type.screenTitle, color = colors.text) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Space.sm)) {
                 Text(
-                    "Crie uma chave em console.anthropic.com → API Keys e cole aqui. Ela fica criptografada só neste aparelho.",
+                    str(R.string.key_body),
                     style = EasyTheme.type.body,
                     color = colors.textBody,
                 )
@@ -206,12 +209,12 @@ private fun ClaudeKeyDialog(onSave: (String) -> Unit, onDismiss: () -> Unit) {
                     ),
                 )
                 if (key.isNotBlank() && !looksValid) {
-                    Hint("Chaves da Anthropic começam com sk-ant-.", color = colors.warn)
+                    Hint(str(R.string.key_invalid), color = colors.warn)
                 }
             }
         },
-        confirmButton = { EasyButton("Salvar", { onSave(key.trim()) }, enabled = looksValid) },
-        dismissButton = { EasyButton("Cancelar", onDismiss, kind = ButtonKind.Ghost) },
+        confirmButton = { EasyButton(str(R.string.action_save), { onSave(key.trim()) }, enabled = looksValid) },
+        dismissButton = { EasyButton(str(R.string.action_cancel), onDismiss, kind = ButtonKind.Ghost) },
     )
 }
 
@@ -220,17 +223,17 @@ private fun ClaudeKeyDialog(onSave: (String) -> Unit, onDismiss: () -> Unit) {
 internal fun ClaudeUsageCard(usage: ClaudeUsage) {
     val colors = EasyTheme.colors
     EasyCard {
-        CardHeader("Claude nesta sessão", icon = R.drawable.ic_ui_messages) {
-            StatusBadge(if (usage.lastError == null) "Ligado" else "Com aviso", if (usage.lastError == null) Tone.Positive else Tone.Warning)
+        CardHeader(str(R.string.usage_title), icon = R.drawable.ic_ui_messages) {
+            StatusBadge(if (usage.lastError == null) str(R.string.badge_on) else str(R.string.badge_warning), if (usage.lastError == null) Tone.Positive else Tone.Warning)
         }
         Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            UsageFigure("Chamadas", usage.requests.toString())
-            UsageFigure("Tokens", "%,d".format(Locale("pt", "BR"), usage.inputTokens + usage.outputTokens))
-            UsageFigure("Custo estimado", "US$ " + "%.4f".format(Locale("pt", "BR"), usage.estimatedCostUsd))
+            UsageFigure(str(R.string.usage_calls), usage.requests.toString())
+            UsageFigure(str(R.string.usage_tokens), "%,d".format(Locale.getDefault(), usage.inputTokens + usage.outputTokens))
+            UsageFigure(str(R.string.usage_cost), "US$ " + "%.4f".format(Locale.getDefault(), usage.estimatedCostUsd))
         }
-        usage.lastError?.let { Hint("Último aviso: $it. As linhas afetadas usam tradução offline.", color = colors.warn) }
+        usage.lastError?.let { Hint(str(R.string.usage_last_warning, it), color = colors.warn) }
         if (usage.requests == 0 && usage.lastError == null) {
-            Hint("Ainda sem chamadas. O Claude traduz no modo Qualidade e explica quando você toca numa linha da janela flutuante.")
+            Hint(str(R.string.usage_none))
         }
     }
 }

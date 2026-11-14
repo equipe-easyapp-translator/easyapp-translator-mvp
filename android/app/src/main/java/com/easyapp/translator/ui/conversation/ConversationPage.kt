@@ -73,6 +73,7 @@ import com.easyapp.translator.ui.home.VoiceOptions
 import com.easyapp.translator.ui.theme.EasyTheme
 import com.easyapp.translator.ui.theme.Radius
 import com.easyapp.translator.ui.theme.Space
+import com.easyapp.translator.str
 
 /** Página do modo Conversa (T061). */
 @Composable
@@ -102,9 +103,9 @@ private fun ConversationSetup(
     val busyElsewhere = state.session.mode == AppMode.SCREEN && state.session.status != SessionStatus.IDLE
     var showStart by remember { mutableStateOf(false) }
     val startAction: @Composable ColumnScope.() -> Unit = {
-        if (busyElsewhere) Hint("Pare a tradução de tela antes de começar uma conversa.", color = EasyTheme.colors.warn)
+        if (busyElsewhere) Hint(str(R.string.conv_busy), color = EasyTheme.colors.warn)
         EasyButton(
-            "Começar conversa",
+            str(R.string.conv_start),
             { showStart = true },
             Modifier.fillMaxWidth(),
             enabled = !busyElsewhere,
@@ -113,33 +114,33 @@ private fun ConversationSetup(
     }
     PageScaffold(bottomAction = startAction) {
         PageHeader(
-            title = "Conversar por voz",
-            subtitle = "Cada um fala no seu idioma e ouve a tradução no seu. Funciona sem internet quando o aparelho tem os pacotes de voz.",
-            overline = "Modo Conversa",
+            title = str(R.string.conv_title),
+            subtitle = str(R.string.conv_subtitle),
+            overline = str(R.string.conv_overline),
         )
         // O idioma de destino é o seu; o de origem é o da outra pessoa.
         LanguageBar(
-            leftTitle = "Você fala",
+            leftTitle = str(R.string.conv_you_speak),
             leftCode = prefs.targetLanguage,
-            rightTitle = "A outra pessoa",
+            rightTitle = str(R.string.conv_other_person),
             rightCode = prefs.sourceLanguage,
             onPickLeft = onPickYourLanguage,
             onPickRight = onPickTheirLanguage,
             onSwap = { actions.setLanguages(prefs.targetLanguage, prefs.sourceLanguage) },
         )
 
-        SectionLabel("Como vocês vão usar o celular")
+        SectionLabel(str(R.string.conv_layout_section))
         Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
             IllustratedChoice(
                 title = ConversationLayout.FACE_TO_FACE.label,
-                description = "Celular na mesa entre vocês; cada metade da tela fica virada para uma pessoa.",
+                description = str(R.string.layout_face_desc),
                 selected = prefs.conversationLayout == ConversationLayout.FACE_TO_FACE,
                 onClick = { actions.setConversationLayout(ConversationLayout.FACE_TO_FACE) },
                 modifier = Modifier.weight(1f),
             ) { faceToFaceIllustration(it) }
             IllustratedChoice(
                 title = ConversationLayout.SIDE_BY_SIDE.label,
-                description = "Uma conversa em balões, como num app de mensagens, com um botão para cada um.",
+                description = str(R.string.layout_side_desc),
                 selected = prefs.conversationLayout == ConversationLayout.SIDE_BY_SIDE,
                 onClick = { actions.setConversationLayout(ConversationLayout.SIDE_BY_SIDE) },
                 modifier = Modifier.weight(1f),
@@ -147,13 +148,13 @@ private fun ConversationSetup(
         }
 
         if (!state.permissions.recordAudioGranted || (state.permissions.notificationsRequired && !state.permissions.notificationsGranted)) {
-            SectionLabel("Antes de começar")
+            SectionLabel(str(R.string.section_before))
             PermissionsCard(state.permissions, AppMode.CONVERSATION, actions::requestPermissions, actions::openOverlaySettings)
         }
 
         InfoNote(
-            title = "Para funcionar sem internet",
-            body = "Baixe os idiomas em Configurações do Android → Sistema → Idiomas → Reconhecimento de fala e Texto para voz. Os nomes dos menus mudam conforme o fabricante.",
+            title = str(R.string.conv_offline_title),
+            body = str(R.string.conv_offline_body),
             icon = R.drawable.ic_ui_info,
         )
     }
@@ -208,8 +209,8 @@ private fun ConversationSession(state: AppUiState, actions: AppActions) {
                 Modifier.fillMaxWidth().background(colors.surface).padding(Space.md),
                 horizontalArrangement = Arrangement.spacedBy(Space.sm),
             ) {
-                SpeakButton(ConversationSpeaker.USER_PORTUGUESE, "Você", prefs.targetLanguage, conversation, enabled, actions, Modifier.weight(1f))
-                SpeakButton(ConversationSpeaker.INTERLOCUTOR, "Outra pessoa", prefs.sourceLanguage, conversation, enabled, actions, Modifier.weight(1f))
+                SpeakButton(ConversationSpeaker.USER_PORTUGUESE, str(R.string.who_you), prefs.targetLanguage, conversation, enabled, actions, Modifier.weight(1f))
+                SpeakButton(ConversationSpeaker.INTERLOCUTOR, str(R.string.who_other), prefs.sourceLanguage, conversation, enabled, actions, Modifier.weight(1f))
             }
         }
     }
@@ -225,10 +226,10 @@ private fun ConversationSession(state: AppUiState, actions: AppActions) {
                 Modifier.fillMaxWidth().padding(horizontal = Space.lg).padding(bottom = Space.xl),
                 verticalArrangement = Arrangement.spacedBy(Space.sm),
             ) {
-                Text("Voz da tradução", style = EasyTheme.type.screenTitle, color = colors.text)
+                Text(str(R.string.voice_sheet_title), style = EasyTheme.type.screenTitle, color = colors.text)
                 VoiceOptions(conversation, enabled, actions::selectVoice, actions::setSpeechRate, actions::setVolume)
                 EasyButton(
-                    "Repetir a última tradução",
+                    str(R.string.voice_repeat),
                     actions::repeatTranslation,
                     Modifier.fillMaxWidth(),
                     kind = ButtonKind.Tonal,
@@ -250,7 +251,7 @@ private fun ControlStrip(state: AppUiState, actions: AppActions, onVoice: () -> 
         verticalArrangement = Arrangement.spacedBy(Space.xs),
     ) {
         Text(
-            if (paused) "Conversa pausada." else state.conversation.status,
+            if (paused) str(R.string.conv_paused) else state.conversation.status,
             style = EasyTheme.type.meta,
             color = colors.mutedOnInk,
             maxLines = 2,
@@ -259,12 +260,12 @@ private fun ControlStrip(state: AppUiState, actions: AppActions, onVoice: () -> 
         )
         Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
             if (paused) {
-                EasyButton("Retomar", actions::resume, Modifier.weight(1f), icon = R.drawable.ic_ui_play)
+                EasyButton(str(R.string.action_resume), actions::resume, Modifier.weight(1f), icon = R.drawable.ic_ui_play)
             } else {
-                EasyButton("Pausar", actions::pause, Modifier.weight(1f), kind = ButtonKind.Tonal, icon = R.drawable.ic_ui_pause)
+                EasyButton(str(R.string.action_pause), actions::pause, Modifier.weight(1f), kind = ButtonKind.Tonal, icon = R.drawable.ic_ui_pause)
             }
-            EasyButton("Voz", onVoice, Modifier.weight(1f), kind = ButtonKind.Tonal, icon = R.drawable.ic_ui_sliders)
-            EasyButton("Encerrar", actions::stop, Modifier.weight(1f), kind = ButtonKind.Tonal, icon = R.drawable.ic_ui_stop)
+            EasyButton(str(R.string.voice_button), onVoice, Modifier.weight(1f), kind = ButtonKind.Tonal, icon = R.drawable.ic_ui_sliders)
+            EasyButton(str(R.string.action_end), actions::stop, Modifier.weight(1f), kind = ButtonKind.Tonal, icon = R.drawable.ic_ui_stop)
         }
     }
 }
@@ -315,7 +316,7 @@ private fun PersonPanel(
                     Text(forThisReader.original, style = EasyTheme.type.meta, color = colors.textMuted)
                 }
                 else -> Text(
-                    if (isYou) "Toque no microfone e fale em ${language.label.lowercase()}." else greetingFor(languageCode),
+                    if (isYou) str(R.string.conv_tap_mic_in, language.inSentence) else greetingFor(languageCode),
                     style = EasyTheme.type.body,
                     color = colors.textMuted,
                 )
@@ -379,7 +380,7 @@ private fun SpeakButton(
     val listeningHere = conversation.isListening && conversation.speaker == speaker
     val language = TranslationLanguages.choice(languageCode)
     EasyButton(
-        text = if (listeningHere) "Parar" else "$who · ${language.nativeName}",
+        text = if (listeningHere) str(R.string.action_stop) else "$who · ${language.nativeName}",
         onClick = { if (listeningHere) actions.cancelListening() else actions.speak(speaker) },
         modifier = modifier,
         kind = if (speaker == ConversationSpeaker.USER_PORTUGUESE) ButtonKind.Primary else ButtonKind.Tonal,
@@ -400,8 +401,8 @@ private fun TurnList(conversation: ConversationSnapshot, modifier: Modifier) {
         Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             CenteredColumn {
                 Icon(painterResource(R.drawable.ic_ui_messages), contentDescription = null, tint = colors.textMuted, modifier = Modifier.size(40.dp))
-                Text("A conversa aparece aqui", style = EasyTheme.type.rowTitle, color = colors.text)
-                Hint("Toque no botão de quem vai falar e fale perto do microfone.")
+                Text(str(R.string.conv_empty_title), style = EasyTheme.type.rowTitle, color = colors.text)
+                Hint(str(R.string.conv_empty_hint))
             }
         }
         return
@@ -436,7 +437,7 @@ private fun TurnBubble(turn: ConversationTurn) {
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                (if (mine) "Você" else "Outra pessoa") + " · " + TranslationLanguages.choice(turn.outputLanguage).nativeName,
+                (if (mine) str(R.string.who_you) else str(R.string.who_other)) + " · " + TranslationLanguages.choice(turn.outputLanguage).nativeName,
                 style = EasyTheme.type.label,
                 color = if (mine) colors.brand else colors.textMuted,
             )
@@ -452,7 +453,7 @@ private fun LiveBubble(speaker: ConversationSpeaker, partial: String) {
     val mine = speaker == ConversationSpeaker.USER_PORTUGUESE
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
         Text(
-            partial.ifBlank { "Ouvindo…" },
+            partial.ifBlank { str(R.string.conv_listening) },
             modifier = Modifier
                 .widthIn(max = 320.dp)
                 .heightIn(min = 44.dp)

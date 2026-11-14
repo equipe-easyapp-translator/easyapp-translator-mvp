@@ -33,6 +33,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.easyapp.translator.R
+import com.easyapp.translator.str
 
 class SessionService : Service() {
     private var mediaProjection: MediaProjection? = null
@@ -56,7 +58,7 @@ class SessionService : Service() {
         override fun onStop() {
             mediaProjection = null
             if (!ending) {
-                stopSession("A captura foi encerrada pelo Android ou pelo usuário")
+                stopSession(str(R.string.svc_capture_ended))
             }
         }
     }
@@ -69,10 +71,10 @@ class SessionService : Service() {
             ACTION_PAUSE -> {
                 screenPipeline?.pauseAndClear()
                 audioCaptionPipeline?.pause()
-                AudioCaptionStateHolder.clear("Sessão pausada; buffer de áudio volátil descartado.")
+                AudioCaptionStateHolder.clear(str(R.string.audio_paused))
                 activeAudioCaption = null
                 conversationEngine?.pause()
-                overlay?.show(emptyList(), "Sessão pausada")
+                overlay?.show(emptyList(), str(R.string.session_paused))
                 inPlacePipeline?.pause()
                 inPlaceOverlay?.setPaused(true)
                 SessionStateHolder.pause()
@@ -83,9 +85,9 @@ class SessionService : Service() {
                 screenPipeline?.resume()
                 audioCaptionPipeline?.resume()
                 if (currentMode == AppMode.CONVERSATION) {
-                    ConversationStateHolder.update { it.copy(status = "Conversa retomada. Escolha quem fala e inicie um turno.") }
+                    ConversationStateHolder.update { it.copy(status = str(R.string.conv_resumed)) }
                 }
-                overlay?.show(emptyList(), "Aguardando texto na tela…")
+                overlay?.show(emptyList(), str(R.string.screen_waiting_text))
                 inPlacePipeline?.resume()
                 inPlaceOverlay?.setPaused(false)
                 updateNotification()
@@ -94,7 +96,7 @@ class SessionService : Service() {
                 val engine = conversationEngine
                 if (engine == null) {
                     ConversationStateHolder.update {
-                        it.copy(isListening = false, status = "Preparando o reconhecimento de voz. Aguarde um instante e tente novamente.")
+                        it.copy(isListening = false, status = str(R.string.svc_preparing_voice))
                     }
                 } else {
                     engine.listenForTurn()
@@ -116,7 +118,7 @@ class SessionService : Service() {
                 audioCaptionExpiry = null
                 refreshOverlay()
             }
-            ACTION_STOP -> stopSession("Sessão encerrada pelo usuário")
+            ACTION_STOP -> stopSession(str(R.string.svc_stopped_by_user))
             else -> stopSelf(startId)
         }
         return START_NOT_STICKY
@@ -125,7 +127,7 @@ class SessionService : Service() {
     private fun startSession(startIntent: Intent) {
         val mode = startIntent.getStringExtra(EXTRA_MODE)
             ?.let { value -> AppMode.entries.firstOrNull { it.name == value } }
-            ?: return stopSession("Modo inválido")
+            ?: return stopSession(str(R.string.svc_invalid_mode))
         currentMode = mode
         ending = false
 
@@ -145,14 +147,14 @@ class SessionService : Service() {
                 val resultCode = startIntent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED)
                 val resultData = startIntent.projectionResultData()
                 if (resultCode != Activity.RESULT_OK || resultData == null) {
-                    stopSession("A permissão de captura não foi concedida")
+                    stopSession(str(R.string.svc_capture_denied))
                     return
                 }
 
                 val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
                 val projection = manager.getMediaProjection(resultCode, resultData)
                 if (projection == null) {
-                    stopSession("O Android não forneceu a projeção de tela")
+                    stopSession(str(R.string.svc_no_projection))
                     return
                 }
                 projection.registerCallback(projectionCallback, Handler(Looper.getMainLooper()))
@@ -164,17 +166,17 @@ class SessionService : Service() {
             if (mode == AppMode.SCREEN) {
                 claude = createClaudeTranslator()
                 screenResults = emptyList()
-                screenMessage = "Iniciando captura da tela…"
+                screenMessage = str(R.string.svc_starting_capture)
                 if (startIntent.getBooleanExtra(EXTRA_CAPTURE_INTERNAL_AUDIO, false)) startAudioCaptionPipeline()
-                else AudioCaptionStateHolder.clear("Legendas de áudio desativadas; OCR de tela continua ativo.")
+                else AudioCaptionStateHolder.clear(str(R.string.svc_captions_off))
                 startScreenPipeline()
             }
             if (mode == AppMode.CONVERSATION) startConversationEngine()
             updateNotification()
         } catch (exception: SecurityException) {
-            stopSession("O Android não autorizou o serviço desta sessão")
+            stopSession(str(R.string.svc_not_authorized))
         } catch (exception: RuntimeException) {
-            stopSession("Não foi possível iniciar a sessão")
+            stopSession(str(R.string.svc_start_failed))
         }
     }
 
@@ -201,7 +203,7 @@ class SessionService : Service() {
         val usage = ClaudeUsageHolder.usage.value
         ClaudeUsageHolder.reset()
         val summary = if (usage.requests > 0) {
-            " · Claude: ${usage.requests} chamadas, ${usage.inputTokens + usage.outputTokens} tokens, ~US$ ${"%.4f".format(java.util.Locale.US, usage.estimatedCostUsd)}"
+            " " + str(R.string.svc_claude_summary, usage.requests, usage.inputTokens + usage.outputTokens, "%.4f".format(java.util.Locale.US, usage.estimatedCostUsd))
         } else ""
         SessionStateHolder.stop(message + summary)
         val projection = mediaProjection
@@ -224,17 +226,17 @@ class SessionService : Service() {
         val paused = snapshot.status == SessionStatus.PAUSED
         val modeLabel = currentMode?.title ?: "EasyApp"
         val pauseAction = if (paused) ACTION_RESUME else ACTION_PAUSE
-        val pauseLabel = if (paused) "Retomar" else "Pausar"
+        val pauseLabel = if (paused) str(R.string.action_resume) else str(R.string.action_pause)
         val detail = when {
-            paused -> "$modeLabel · toque para retomar"
-            currentMode == AppMode.SCREEN -> "$modeLabel · OCR e tradução no aparelho"
-            else -> "$modeLabel · fala processada offline por turnos"
+            paused -> str(R.string.notif_paused_detail, modeLabel)
+            currentMode == AppMode.SCREEN -> str(R.string.notif_screen_detail, modeLabel)
+            else -> str(R.string.notif_conversation_detail, modeLabel)
         }
 
         val builder = androidx.core.app.NotificationCompat.Builder(this, CHANNEL_ID)
         builder.setSmallIcon(com.easyapp.translator.R.drawable.ic_notification)
         builder.setColor(getColor(com.easyapp.translator.R.color.brand))
-        builder.setContentTitle("EasyApp · ${if (paused) "Pausada" else "Sessão ativa"}")
+        builder.setContentTitle(if (paused) str(R.string.notif_title_paused) else str(R.string.notif_title_active))
         builder.setContentText(detail)
         builder.setContentIntent(
             PendingIntent.getActivity(
@@ -248,7 +250,7 @@ class SessionService : Service() {
         builder.setOngoing(true)
         builder.setOnlyAlertOnce(true)
         builder.addAction(0, pauseLabel, servicePendingIntent(pauseAction))
-        builder.addAction(0, "Parar", servicePendingIntent(ACTION_STOP))
+        builder.addAction(0, str(R.string.action_stop), servicePendingIntent(ACTION_STOP))
         return builder.build()
     }
 
@@ -263,10 +265,10 @@ class SessionService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "Sessão de tradução",
+                str(R.string.notif_channel),
                 NotificationManager.IMPORTANCE_LOW,
             ).apply {
-                description = "Estado e controles da sessão ativa do EasyApp"
+                description = str(R.string.notif_channel_desc)
                 setShowBadge(false)
             }
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
@@ -292,7 +294,7 @@ class SessionService : Service() {
         mediaProjection = null
         if (projection != null) runCatching { projection.stop() }
         if (!ending && SessionStateHolder.snapshot.value.status != SessionStatus.IDLE) {
-            SessionStateHolder.stop("Serviço da sessão encerrado")
+            SessionStateHolder.stop(str(R.string.svc_service_ended))
         }
         super.onDestroy()
     }
@@ -330,7 +332,7 @@ class SessionService : Service() {
             val preferences = UserPreferencesRepository(applicationContext)
             var settings = preferences.preferences.first()
             SessionStateHolder.updateTranslationModelStatus(
-                "${TranslationLanguages.choice(settings.sourceLanguage).label} → ${TranslationLanguages.choice(settings.targetLanguage).label}: toque em Traduzir no botão flutuante.",
+                str(R.string.svc_inplace_model_status, TranslationLanguages.choice(settings.sourceLanguage).label, TranslationLanguages.choice(settings.targetLanguage).label),
             )
             val pipeline = InPlaceSnapshotPipeline(
                 windowManager = windowManager,
@@ -361,7 +363,7 @@ class SessionService : Service() {
                             }
                     }
                 } catch (_: RuntimeException) {
-                    stopSession("Não foi possível iniciar a captura da tela")
+                    stopSession(str(R.string.svc_capture_start_failed))
                 }
             } else {
                 pipeline.close()
@@ -387,7 +389,7 @@ class SessionService : Service() {
             val preferences = UserPreferencesRepository(applicationContext)
             var settings = preferences.preferences.first()
             SessionStateHolder.updateTranslationModelStatus(
-                "${TranslationLanguages.choice(settings.sourceLanguage).label} → ${TranslationLanguages.choice(settings.targetLanguage).label}: modelo será verificado ao traduzir.",
+                str(R.string.svc_floating_model_status, TranslationLanguages.choice(settings.sourceLanguage).label, TranslationLanguages.choice(settings.targetLanguage).label),
             )
             val pipeline = ScreenTranslationPipeline(
                 windowManager = windowManager,
@@ -414,7 +416,7 @@ class SessionService : Service() {
             if (SessionStateHolder.snapshot.value.status == SessionStatus.ACTIVE && !ending) {
                 try {
                     pipeline.start()
-                    overlayController.show(emptyList(), "Iniciando captura e preparando modelo offline…")
+                    overlayController.show(emptyList(), str(R.string.svc_starting_floating))
                     launch {
                         preferences.preferences
                             .distinctUntilChanged()
@@ -428,7 +430,7 @@ class SessionService : Service() {
                             }
                     }
                 } catch (_: RuntimeException) {
-                    stopSession("Não foi possível iniciar a captura da tela")
+                    stopSession(str(R.string.svc_capture_start_failed))
                 }
             } else {
                 pipeline.closeAndClear()
@@ -486,7 +488,7 @@ class SessionService : Service() {
     private fun explain(item: ScreenTranslation) {
         val translator = claude ?: return
         val snapshot = SessionStateHolder.snapshot.value
-        overlay?.showExplanation(item.source, "Perguntando ao Claude…")
+        overlay?.showExplanation(item.source, str(R.string.claude_asking))
         serviceScope.launch {
             val result = withContext(Dispatchers.IO) {
                 translator.explain(item.source, item.translated, snapshot.sourceLanguage, snapshot.targetLanguage)
@@ -494,7 +496,7 @@ class SessionService : Service() {
             if (ending) return@launch
             val text = when (result) {
                 is ClaudeResult.Ok -> result.value
-                is ClaudeResult.Failed -> "Não foi possível explicar agora: ${result.reason}."
+                is ClaudeResult.Failed -> str(R.string.claude_explain_failed, result.reason)
             }
             overlay?.showExplanation(item.source, text)
         }
@@ -511,7 +513,7 @@ class SessionService : Service() {
     private fun startConversationEngine() {
         conversationEngine?.close()
         val engine = ConversationEngine(applicationContext) {
-            stopSession("A permissão do microfone foi revogada; a conversa foi encerrada.")
+            stopSession(str(R.string.svc_mic_revoked))
         }
         conversationEngine = engine
         val preferences = UserPreferencesRepository(applicationContext).preferences

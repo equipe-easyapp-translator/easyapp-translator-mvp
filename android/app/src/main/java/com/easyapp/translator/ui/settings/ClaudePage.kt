@@ -17,12 +17,13 @@ import com.easyapp.translator.ui.components.SubPageTopBar
 import com.easyapp.translator.ui.home.ClaudeSetupCard
 import com.easyapp.translator.ui.home.ClaudeUsageCard
 import com.easyapp.translator.ui.theme.EasyTheme
+import com.easyapp.translator.str
 
 /** Página do Claude: o que faz, a chave, o custo e o gasto da sessão. */
 @Composable
 fun ClaudePage(state: AppUiState, actions: AppActions, onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().background(EasyTheme.colors.paper)) {
-        SubPageTopBar("Tradução com Claude", onBack)
+        SubPageTopBar(str(R.string.claude_page_title), onBack)
         PageScaffold(Modifier.weight(1f)) {
             ClaudeSetupCard(
                 state = state.claude,
@@ -34,23 +35,23 @@ fun ClaudePage(state: AppUiState, actions: AppActions, onBack: () -> Unit) {
                 onTest = actions::claudeTest,
             )
             if (state.claude.usable && state.session.status != SessionStatus.IDLE) {
-                SectionLabel("Sessão atual")
+                SectionLabel(str(R.string.claude_current_session))
                 ClaudeUsageCard(state.claudeUsage)
             }
-            SectionLabel("Como funciona")
+            SectionLabel(str(R.string.claude_how))
             InfoNote(
-                title = "Quando o Claude é usado",
-                body = "Na tradução de tela com qualidade \"Qualidade\": as frases da tela vão juntas, com contexto, e voltam traduzidas como uma pessoa traduziria. Na janela flutuante, também ao tocar numa frase para entender o que ela quer dizer.",
+                title = str(R.string.claude_when_title),
+                body = str(R.string.claude_when_body),
                 icon = R.drawable.ic_ui_sparkle,
             )
             InfoNote(
-                title = "Quanto custa",
-                body = "O modelo é o Claude Haiku 5.5, o mais econômico. Uma tela cheia custa cerca de US$ 0,00025, e uma hora de uso contínuo fica em torno de US$ 0,10 a 0,15. O app mostra o gasto real de cada sessão.",
+                title = str(R.string.claude_cost_title),
+                body = str(R.string.claude_cost_body),
                 icon = R.drawable.ic_ui_info,
             )
             InfoNote(
-                title = "Privacidade",
-                body = "Só o texto lido da tela é enviado, nunca a imagem nem o áudio. A Anthropic apaga esses dados em até 30 dias e, por padrão, não os usa para treinar modelos. Sem internet ou com algum erro, o app volta para a tradução offline.",
+                title = str(R.string.settings_privacy),
+                body = str(R.string.claude_privacy_body),
                 icon = R.drawable.ic_ui_shield,
             )
         }

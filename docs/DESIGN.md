@@ -44,6 +44,14 @@ O conceito é **"Dois balões"**: o balão creme com a letra A representa quem f
 
 Para mudar o desenho, edite o `pathData` nas três camadas, que usam o mesmo canvas de 108×108.
 
+## Idiomas da interface
+
+- Os textos ficam em `res/values/strings.xml` (inglês, também a reserva para qualquer outro idioma), `res/values-pt/strings.xml` e `res/values-it/strings.xml`. **Nunca escreva texto de interface direto no código.**
+- Nas telas e no serviço, use `str(R.string.chave)` (ou `str(R.string.chave, arg)` para textos com `%1$s` / `%1$d`).
+- Ao criar um texto, adicione-o aos três arquivos com a mesma chave. Em italiano, escape o apóstrofo como `\'` (`l\'app`).
+- Nenhuma lógica pode comparar o texto de uma mensagem, porque ele muda com o idioma. Use um estado próprio.
+- Os nomes dos idiomas nas listas aparecem no próprio idioma (English, Español, Italiano), e o que é dito para a outra pessoa na conversa fica no idioma dela.
+
 ## Licenças
 
 - Fonte Archivo: SIL Open Font License, em `docs/licencas/Archivo-OFL.txt`.

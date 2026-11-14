@@ -99,3 +99,12 @@
 - [ ] T064 Aplicar o tamanho da tradução na janela flutuante e na tradução no lugar do texto.
 - [ ] T065 Revisar acessibilidade: áreas de toque de 48 dp, descrições para leitor de tela, títulos de seção e contraste nos dois temas.
 - [ ] T066 Validar no aparelho com pelo menos duas pessoas: trocar idioma, iniciar cada modo, ajustar tamanhos e conversar frente a frente.
+
+## Fase 11 — História P1: interface em português, italiano e inglês
+
+- [x] T067 Mover os cerca de 390 textos de interface do código para `strings.xml` (`values` em inglês como reserva, `values-pt`, `values-it`), incluindo serviço, notificação, sobreposições e mensagens de estado.
+- [x] T068 Trocar as decisões que comparavam texto ("pausad", "Funcionou") por estados próprios (FR-034).
+- [x] T069 Definir o par de idiomas inicial a partir do idioma do aparelho (FR-035).
+- [x] T070 Adicionar o seletor "Idioma do app" nos Ajustes (Android 13+, `LocaleManager` e `locales_config.xml`) e a explicação para Android 11–12.
+- [ ] T071 Revisão das traduções por falantes nativos de italiano e inglês (a equipe tem contato com italianos pelas entrevistas).
+- [ ] T072 Validar no aparelho nos três idiomas: setup, sessão, notificação, janela flutuante, tradução no lugar do texto e conversa.

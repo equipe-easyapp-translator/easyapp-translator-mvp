@@ -3,6 +3,8 @@ package com.easyapp.translator.session
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.easyapp.translator.R
+import com.easyapp.translator.str
 
 data class AudioCaptionEntry(
     val id: Long,
@@ -13,7 +15,7 @@ data class AudioCaptionEntry(
 )
 
 data class AudioCaptionSnapshot(
-    val status: String = "Legendas de áudio interno aguardando a sessão de tela.",
+    val status: String = str(R.string.captions_waiting),
     val isCapturing: Boolean = false,
     val vadActive: Boolean = false,
     val partialText: String = "",
@@ -35,10 +37,10 @@ object AudioCaptionStateHolder {
     }
 
     fun clearHistory() {
-        update { it.copy(history = emptyList(), partialText = "", status = "Buffer temporário limpo.") }
+        update { it.copy(history = emptyList(), partialText = "", status = str(R.string.captions_cleared)) }
     }
 
-    fun clear(message: String = "Captura de áudio encerrada; buffer volátil descartado.") {
+    fun clear(message: String = str(R.string.captions_stopped)) {
         mutableState.value = AudioCaptionSnapshot(status = message)
     }
 

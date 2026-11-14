@@ -1,8 +1,15 @@
 package com.easyapp.translator.session
 
-enum class AppMode(val title: String, val description: String) {
-    SCREEN("Tradução de Tela e Apps", "Texto em sobreposição e legendas quando a captura for permitida."),
-    CONVERSATION("Conversa Presencial por Voz", "Fale por turnos e ouça a tradução no idioma escolhido."),
+import com.easyapp.translator.R
+import com.easyapp.translator.str
+
+enum class AppMode(private val titleRes: Int, private val descriptionRes: Int) {
+    SCREEN(R.string.mode_screen_title, R.string.mode_screen_description),
+    CONVERSATION(R.string.mode_conversation_title, R.string.mode_conversation_description),
+    ;
+
+    val title: String get() = str(titleRes)
+    val description: String get() = str(descriptionRes)
 }
 
 enum class SessionStatus {
@@ -14,8 +21,8 @@ enum class SessionStatus {
 data class SessionSnapshot(
     val status: SessionStatus = SessionStatus.IDLE,
     val mode: AppMode? = null,
-    val message: String = "Pronto para iniciar",
+    val message: String = str(R.string.session_ready),
     val sourceLanguage: String = "en",
     val targetLanguage: String = "pt",
-    val translationModelStatus: String = "O modelo offline será verificado ao iniciar uma tradução.",
+    val translationModelStatus: String = str(R.string.model_status_default),
 )

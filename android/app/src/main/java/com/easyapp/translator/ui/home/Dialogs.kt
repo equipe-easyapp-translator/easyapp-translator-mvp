@@ -12,19 +12,21 @@ import com.easyapp.translator.ui.components.EasyButton
 import com.easyapp.translator.ui.theme.EasyTheme
 import com.easyapp.translator.ui.theme.Radius
 import com.easyapp.translator.ui.theme.Space
+import com.easyapp.translator.R
+import com.easyapp.translator.str
 
 /** Aviso do primeiro uso, antes de qualquer pedido de permissão. Não fecha tocando fora. */
 @Composable
 internal fun PrivacyNoticeDialog(onAccept: () -> Unit, onDecline: () -> Unit) {
     EasyDialog(
-        title = "Antes de começar",
+        title = str(R.string.section_before),
         paragraphs = listOf(
-            "O EasyApp traduz no próprio aparelho. O que aparece na tela, o áudio e as traduções ficam só durante a sessão e são apagados quando você para.",
-            "Vamos pedir o microfone (para a conversa por voz e, se você ativar, as legendas de áudio) e as notificações (para você ver e parar a sessão a qualquer momento).",
-            "A captura de tela e a janela sobre outros apps são pedidas separadamente, só quando você usar o modo Tela.",
+            str(R.string.privacy_p1),
+            str(R.string.privacy_p2),
+            str(R.string.privacy_p3),
         ),
-        confirm = "Concordo e continuar",
-        dismiss = "Sair",
+        confirm = str(R.string.privacy_accept),
+        dismiss = str(R.string.action_exit),
         onConfirm = onAccept,
         onDismiss = onDecline,
         dismissOnOutside = false,
@@ -40,23 +42,23 @@ internal fun StartExplanationDialog(
 ) {
     val paragraphs = when {
         mode == AppMode.CONVERSATION -> listOf(
-            "O EasyApp vai usar o microfone para ouvir cada turno. Quando o aparelho tem o pacote de idioma offline, a fala é processada sem internet.",
-            "Transcrições e traduções ficam só na sessão e são apagadas ao parar.",
+            str(R.string.start_conv_p1),
+            str(R.string.start_conv_p2),
         )
         audioCaptionsSelected -> listOf(
-            "O Android vai pedir autorização para compartilhar a tela. O texto visível é lido e traduzido no aparelho.",
-            "As legendas de áudio que você ativou usam o microfone e exigem Android 13 ou superior. Alguns apps bloqueiam a captura do som; nesses casos a tradução do texto continua funcionando.",
+            str(R.string.start_screen_p1_audio),
+            str(R.string.start_screen_p2_audio),
         )
         else -> listOf(
-            "O Android vai pedir autorização para compartilhar a tela. O texto visível é lido e traduzido, e a tradução aparece sobre a tela, no estilo que você escolheu.",
-            "Apps com proteção de conteúdo (como alguns de vídeo e banco) podem aparecer em preto e não ser traduzidos.",
+            str(R.string.start_screen_p1),
+            str(R.string.start_screen_p2),
         )
     }
     EasyDialog(
-        title = if (mode == AppMode.SCREEN) "Traduzir a tela" else "Conversa por voz",
+        title = if (mode == AppMode.SCREEN) str(R.string.screen_title) else str(R.string.mode_conversation_title),
         paragraphs = paragraphs,
-        confirm = "Continuar",
-        dismiss = "Agora não",
+        confirm = str(R.string.action_continue),
+        dismiss = str(R.string.action_not_now),
         onConfirm = onConfirm,
         onDismiss = onDismiss,
     )

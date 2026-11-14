@@ -3,6 +3,8 @@ package com.easyapp.translator.session
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.easyapp.translator.R
+import com.easyapp.translator.str
 
 enum class ConversationSpeaker { USER_PORTUGUESE, INTERLOCUTOR }
 
@@ -27,7 +29,7 @@ data class ConversationSnapshot(
     val translatedText: String = "",
     val repeatText: String = "",
     val repeatLanguageTag: String = "en-US",
-    val status: String = "Escolha quem vai falar e toque em Ouvir.",
+    val status: String = str(R.string.conv_status_initial),
     val isListening: Boolean = false,
     val isSpeaking: Boolean = false,
     val speechRate: Float = 1f,
@@ -48,7 +50,7 @@ object ConversationStateHolder {
         mutableState.value = transform(mutableState.value)
     }
 
-    fun clear(message: String = "Conversa encerrada. Nenhuma transcrição ou tradução foi salva.") {
+    fun clear(message: String = str(R.string.conv_ended)) {
         mutableState.value = ConversationSnapshot(status = message)
     }
 }

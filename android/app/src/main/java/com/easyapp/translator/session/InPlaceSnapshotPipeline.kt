@@ -26,6 +26,8 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.util.Locale
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import com.easyapp.translator.R
+import com.easyapp.translator.str
 
 /** Uma linha traduzida, já na posição da tela (pixels reais), com as cores amostradas em volta. */
 data class PlacedTranslation(
@@ -232,22 +234,22 @@ class InPlaceSnapshotPipeline(
             lastImage.also { lastImage = null }
         }
         if (image == null) {
-            finish(emptyList(), "Não consegui ler a tela. Tente de novo.", requestGeneration)
+            finish(emptyList(), str(R.string.inplace_read_failed), requestGeneration)
             return
         }
         val hash = runCatching { contentHash(image) }.getOrNull()
         val bitmap = imageToBitmap(image)
         image.close()
         if (bitmap == null) {
-            finish(emptyList(), "Não consegui ler a tela. Tente de novo.", requestGeneration)
+            finish(emptyList(), str(R.string.inplace_read_failed), requestGeneration)
             return
         }
         snapshotHash = hash
         state = State.PROCESSING
-        main.post { onStatus("Lendo o texto da tela…") }
+        main.post { onStatus(str(R.string.inplace_reading_text)) }
         val task = try { recognizer.process(InputImage.fromBitmap(bitmap, 0)) } catch (_: RuntimeException) {
             bitmap.recycle()
-            finish(emptyList(), "Não consegui ler o texto desta tela.", requestGeneration)
+            finish(emptyList(), str(R.string.inplace_text_failed), requestGeneration)
             return
         }
         task
@@ -265,12 +267,12 @@ class InPlaceSnapshotPipeline(
                     .take(MAX_LINES)
                 bitmap.recycle()
                 if (requestGeneration != generation || closed) return@addOnSuccessListener
-                if (lines.isEmpty()) finish(emptyList(), "Não encontrei texto nesta tela.", requestGeneration)
+                if (lines.isEmpty()) finish(emptyList(), str(R.string.inplace_no_text), requestGeneration)
                 else translateSnapshot(lines, requestGeneration)
             }
             .addOnFailureListener(workerExecutor) {
                 bitmap.recycle()
-                finish(emptyList(), "Não consegui ler o texto desta tela.", requestGeneration)
+                finish(emptyList(), str(R.string.inplace_text_failed), requestGeneration)
             }
     }
 
@@ -280,7 +282,7 @@ class InPlaceSnapshotPipeline(
 
     private fun translateSnapshot(lines: List<SnapshotLine>, requestGeneration: Int) {
         if (sourceLanguage == targetLanguage) {
-            finish(emptyList(), "Origem e destino são o mesmo idioma.", requestGeneration)
+            finish(emptyList(), str(R.string.same_language_short), requestGeneration)
             return
         }
         val missing = lines.filter { it.key !in cache }.distinctBy { it.key }
@@ -289,7 +291,7 @@ class InPlaceSnapshotPipeline(
             translateWithMlKit(lines, requestGeneration)
             return
         }
-        main.post { onStatus("Traduzindo com o Claude…") }
+        main.post { onStatus(str(R.string.claude_translating)) }
         val batch = missing.take(CLAUDE_MAX_LINES)
         val source = sourceLanguage
         val target = targetLanguage
@@ -304,7 +306,7 @@ class InPlaceSnapshotPipeline(
                         }
                         is ClaudeResult.Failed -> {
                             if (result.permanent) claudeDisabled = true
-                            claudeNotice = "Claude indisponível (${result.reason}); usei a tradução offline."
+                            claudeNotice = str(R.string.claude_unavailable_used_offline, result.reason)
                         }
                     }
                     // O que o Claude não devolveu cai para o ML Kit (FR-023).
@@ -324,10 +326,10 @@ class InPlaceSnapshotPipeline(
         }
         val client = ensureTranslator()
         if (client == null) {
-            finish(place(lines), "Este par de idiomas não tem modelo offline.", requestGeneration)
+            finish(place(lines), str(R.string.no_offline_model_pair), requestGeneration)
             return
         }
-        main.post { onStatus("Traduzindo…") }
+        main.post { onStatus(str(R.string.translating_short)) }
         client.downloadModelIfNeeded(DownloadConditions.Builder().build())
             .addOnSuccessListener(workerExecutor) {
                 if (requestGeneration != generation || closed) return@addOnSuccessListener
@@ -346,7 +348,7 @@ class InPlaceSnapshotPipeline(
                 }
             }
             .addOnFailureListener(workerExecutor) {
-                finish(place(lines), "Modelo offline indisponível. Conecte-se para baixá-lo e tente de novo.", requestGeneration)
+                finish(place(lines), str(R.string.model_unavailable_retry), requestGeneration)
             }
     }
 
@@ -400,13 +402,13 @@ class InPlaceSnapshotPipeline(
     private fun prepareModel() {
         if (closed || sourceLanguage == targetLanguage) return
         val client = ensureTranslator() ?: return
-        main.post { onStatus("Preparando o modelo offline…") }
+        main.post { onStatus(str(R.string.model_preparing_short)) }
         client.downloadModelIfNeeded(DownloadConditions.Builder().build())
             .addOnSuccessListener(workerExecutor) { main.post { if (!closed) onStatus(READY_STATUS) } }
             .addOnFailureListener(workerExecutor) {
                 main.post {
                     if (!closed) {
-                        onStatus(if (claude != null) READY_STATUS else "Sem o modelo offline. Conecte-se à internet para baixá-lo.")
+                        onStatus(if (claude != null) READY_STATUS else str(R.string.model_missing_connect))
                     }
                 }
             }
@@ -495,7 +497,7 @@ class InPlaceSnapshotPipeline(
     private fun normalize(value: String): String = value.lowercase(Locale.ROOT).replace(Regex("\\s+"), " ").trim()
 
     companion object {
-        const val READY_STATUS = "Pronto. Abra o app e toque em Traduzir."
+        val READY_STATUS: String get() = str(R.string.inplace_ready)
         private const val SETTLE_MS = 220L
         private const val WATCH_SETTLE_MS = 800L
         private const val RESETTLE_MS = 500L

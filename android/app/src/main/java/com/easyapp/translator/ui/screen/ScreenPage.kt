@@ -46,6 +46,7 @@ import com.easyapp.translator.ui.home.ScreenAudioCaptionsOption
 import com.easyapp.translator.ui.home.StartExplanationDialog
 import com.easyapp.translator.ui.theme.EasyTheme
 import com.easyapp.translator.ui.theme.Space
+import com.easyapp.translator.str
 
 /** Página do modo Tela (T060). Sem sessão: preparação. Com sessão: painel da sessão. */
 @Composable
@@ -64,9 +65,9 @@ fun ScreenPage(
     val audioCaptions = state.screenAudioCaptionsSelected && prefs.overlayStyle == OverlayStyle.FLOATING
 
     val startAction: @Composable ColumnScope.() -> Unit = {
-        if (busyElsewhere) Hint("Encerre a conversa por voz antes de traduzir a tela.", color = EasyTheme.colors.warn)
+        if (busyElsewhere) Hint(str(R.string.screen_busy), color = EasyTheme.colors.warn)
         EasyButton(
-            "Iniciar tradução de tela",
+            str(R.string.screen_start),
             { showStart = true },
             Modifier.fillMaxWidth(),
             enabled = !busyElsewhere,
@@ -78,16 +79,16 @@ fun ScreenPage(
             ScreenSessionPanel(state, actions)
         } else {
             PageHeader(
-                title = "Traduzir a tela",
-                subtitle = "Leia em português o que aparece em qualquer app: conversas, sites, cardápios, avisos.",
-                overline = "Modo Tela",
+                title = str(R.string.screen_title),
+                subtitle = str(R.string.screen_subtitle),
+                overline = str(R.string.screen_overline),
             )
         }
 
         LanguageBar(
-            leftTitle = "Traduzir de",
+            leftTitle = str(R.string.lang_page_from),
             leftCode = prefs.sourceLanguage,
-            rightTitle = "Para",
+            rightTitle = str(R.string.lang_to_short),
             rightCode = prefs.targetLanguage,
             onPickLeft = onPickSource,
             onPickRight = onPickTarget,
@@ -97,24 +98,24 @@ fun ScreenPage(
         if (active) {
             if (state.claude.usable) ClaudeUsageCard(state.claudeUsage)
             if (audioCaptions) AudioCaptionsCard(state.audioCaptions, session.status == SessionStatus.ACTIVE, actions::clearAudioCaptions)
-            SectionLabel("Qualidade da leitura")
+            SectionLabel(str(R.string.section_quality))
             QualitySelector(prefs.qualityMode, actions::setQuality)
-            Hint("O estilo de exibição e o tamanho do texto valem a partir da próxima sessão.")
+            Hint(str(R.string.screen_next_session))
             return@PageScaffold
         }
 
-        SectionLabel("Como a tradução aparece")
+        SectionLabel(str(R.string.section_style))
         Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
             IllustratedChoice(
                 title = OverlayStyle.IN_PLACE.label,
-                description = "Toque num botão e cada frase é trocada pela tradução, no mesmo lugar.",
+                description = str(R.string.style_in_place_desc),
                 selected = prefs.overlayStyle == OverlayStyle.IN_PLACE,
                 onClick = { actions.setOverlayStyle(OverlayStyle.IN_PLACE) },
                 modifier = Modifier.weight(1f),
             ) { inPlaceIllustration(it) }
             IllustratedChoice(
                 title = OverlayStyle.FLOATING.label,
-                description = "Uma janela acompanha a tela e mostra as traduções o tempo todo.",
+                description = str(R.string.style_floating_desc),
                 selected = prefs.overlayStyle == OverlayStyle.FLOATING,
                 onClick = { actions.setOverlayStyle(OverlayStyle.FLOATING) },
                 modifier = Modifier.weight(1f),
@@ -124,18 +125,18 @@ fun ScreenPage(
             ScreenAudioCaptionsOption(selected = state.screenAudioCaptionsSelected, onSelected = actions::setScreenAudioCaptions)
         }
 
-        SectionLabel("Qualidade da leitura")
+        SectionLabel(str(R.string.section_quality))
         QualitySelector(prefs.qualityMode, actions::setQuality)
 
-        SectionLabel("Inteligência artificial")
+        SectionLabel(str(R.string.section_ai))
         EasyCard {
             SettingRow(
-                title = "Tradução refinada com Claude",
+                title = str(R.string.claude_row_title),
                 subtitle = when {
-                    state.claude.usable && prefs.qualityMode == QualityMode.QUALITY -> "Ligada · entende gírias e contexto"
-                    state.claude.usable -> "Configurada · escolha Qualidade para usar"
-                    state.claude.hasKey -> "Desligada"
-                    else -> "Opcional · usa a sua chave da Anthropic"
+                    state.claude.usable && prefs.qualityMode == QualityMode.QUALITY -> str(R.string.claude_row_on)
+                    state.claude.usable -> str(R.string.claude_row_configured)
+                    state.claude.hasKey -> str(R.string.claude_row_off)
+                    else -> str(R.string.claude_row_optional)
                 },
                 icon = R.drawable.ic_ui_sparkle,
                 onClick = onOpenClaude,
@@ -146,13 +147,13 @@ fun ScreenPage(
             !state.permissions.overlayGranted ||
             (state.permissions.notificationsRequired && !state.permissions.notificationsGranted)
         if (missing) {
-            SectionLabel("Antes de começar")
+            SectionLabel(str(R.string.section_before))
             PermissionsCard(state.permissions, AppMode.SCREEN, actions::requestPermissions, actions::openOverlaySettings)
         }
 
         InfoNote(
-            title = "Tudo fica no aparelho",
-            body = "A tela é lida e traduzida no celular. Nada é salvo: ao parar, as capturas e traduções são apagadas.",
+            title = str(R.string.screen_private_title),
+            body = str(R.string.screen_private_body),
             icon = R.drawable.ic_ui_shield,
         )
     }
@@ -177,13 +178,13 @@ private fun QualitySelector(selected: QualityMode, onSelect: (QualityMode) -> Un
             options = QualityMode.entries,
             selected = selected,
             onSelect = onSelect,
-            optionDescription = { "Qualidade ${it.label}" },
+            optionDescription = { str(R.string.cd_quality, it.label) },
         ) { it.label }
         Hint(
             when (selected) {
-                QualityMode.ECONOMY -> "Lê a tela com menos frequência. Gasta menos bateria; bom para textos que mudam pouco."
-                QualityMode.BALANCED -> "O equilíbrio entre rapidez e bateria. Recomendado para o dia a dia."
-                QualityMode.QUALITY -> "Lê a tela com mais frequência e, com o Claude ligado, traduz com contexto."
+                QualityMode.ECONOMY -> str(R.string.quality_economy_desc)
+                QualityMode.BALANCED -> str(R.string.quality_balanced_desc)
+                QualityMode.QUALITY -> str(R.string.quality_quality_desc)
             },
         )
     }
@@ -201,23 +202,23 @@ private fun ScreenSessionPanel(state: AppUiState, actions: AppActions) {
             LiveDot(if (paused) colors.warn else BrandOnInk)
             Spacer(Modifier.width(Space.xs))
             Text(
-                if (paused) "PAUSADA" else "TRADUZINDO A TELA",
+                if (paused) str(R.string.panel_paused) else str(R.string.panel_translating),
                 style = EasyTheme.type.label,
                 color = colors.mutedOnInk,
                 modifier = Modifier.weight(1f),
             )
-            StatusBadge(if (inPlace) "No lugar" else "Janela", Tone.Neutral)
+            StatusBadge(if (inPlace) str(R.string.badge_in_place) else str(R.string.badge_window), Tone.Neutral)
         }
         Text(
-            if (inPlace) "Abra o app e toque em Traduzir" else "Abra o app que quer entender",
+            if (inPlace) str(R.string.panel_inplace_title) else str(R.string.panel_floating_title),
             style = EasyTheme.type.screenTitle,
             color = colors.textOnInk,
         )
         Text(
             if (inPlace) {
-                "O botão flutuante traduz a tela na hora. Toque em qualquer ponto para voltar ao original; se a tela mudar, a tradução some sozinha."
+                str(R.string.panel_inplace_body)
             } else {
-                "A janela flutuante acompanha a tela. Arraste pelo título; toque nele para recolher ou expandir."
+                str(R.string.panel_floating_body)
             },
             style = EasyTheme.type.body,
             color = colors.mutedOnInk,
@@ -225,11 +226,11 @@ private fun ScreenSessionPanel(state: AppUiState, actions: AppActions) {
         if (session.message.isNotBlank()) Text(session.message, style = EasyTheme.type.meta, color = colors.mutedOnInk)
         Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
             if (paused) {
-                EasyButton("Retomar", actions::resume, Modifier.weight(1f), icon = R.drawable.ic_ui_play)
+                EasyButton(str(R.string.action_resume), actions::resume, Modifier.weight(1f), icon = R.drawable.ic_ui_play)
             } else {
-                EasyButton("Pausar", actions::pause, Modifier.weight(1f), kind = ButtonKind.Tonal, icon = R.drawable.ic_ui_pause)
+                EasyButton(str(R.string.action_pause), actions::pause, Modifier.weight(1f), kind = ButtonKind.Tonal, icon = R.drawable.ic_ui_pause)
             }
-            EasyButton("Parar", actions::stop, Modifier.weight(1f), kind = ButtonKind.Tonal, icon = R.drawable.ic_ui_stop)
+            EasyButton(str(R.string.action_stop), actions::stop, Modifier.weight(1f), kind = ButtonKind.Tonal, icon = R.drawable.ic_ui_stop)
         }
     }
 }

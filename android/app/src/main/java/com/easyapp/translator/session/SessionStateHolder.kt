@@ -3,6 +3,8 @@ package com.easyapp.translator.session
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.easyapp.translator.R
+import com.easyapp.translator.str
 
 /** In-memory session state only. Translation content and transcripts are never stored here. */
 object SessionStateHolder {
@@ -13,15 +15,15 @@ object SessionStateHolder {
         mutableSnapshot.value = mutableSnapshot.value.copy(
             status = SessionStatus.ACTIVE,
             mode = mode,
-            message = if (mode == AppMode.SCREEN) "Captura ativa; procurando texto para traduzir." else "Sessão de conversa preparada.",
-            translationModelStatus = "O modelo offline será verificado ao iniciar uma tradução.",
+            message = if (mode == AppMode.SCREEN) str(R.string.session_screen_active) else str(R.string.session_conversation_ready),
+            translationModelStatus = str(R.string.model_status_default),
         )
     }
 
     fun pause() {
         mutableSnapshot.value = mutableSnapshot.value.copy(
             status = SessionStatus.PAUSED,
-            message = "Sessão pausada",
+            message = str(R.string.session_paused),
         )
     }
 
@@ -29,16 +31,16 @@ object SessionStateHolder {
         val mode = mutableSnapshot.value.mode
         mutableSnapshot.value = mutableSnapshot.value.copy(
             status = SessionStatus.ACTIVE,
-            message = if (mode == AppMode.SCREEN) "Captura retomada; procurando texto para traduzir." else "Sessão retomada.",
+            message = if (mode == AppMode.SCREEN) str(R.string.session_screen_resumed) else str(R.string.session_resumed),
         )
     }
 
-    fun stop(message: String = "Sessão encerrada") {
+    fun stop(message: String = str(R.string.session_ended)) {
         mutableSnapshot.value = mutableSnapshot.value.copy(
             status = SessionStatus.IDLE,
             mode = null,
             message = message,
-            translationModelStatus = "O modelo offline será verificado ao iniciar uma tradução.",
+            translationModelStatus = str(R.string.model_status_default),
         )
     }
 

@@ -14,6 +14,8 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
+import com.easyapp.translator.R
+import com.easyapp.translator.str
 
 /** In-memory overlay. The translation band disappears when OCR no longer sees its source text. */
 class TranslationOverlayController(
@@ -35,9 +37,9 @@ class TranslationOverlayController(
     private val status = TextView(context).apply {
         setTextColor(Color.WHITE)
         textSize = 12f
-        text = "EasyApp · procurando texto"
+        text = str(R.string.overlay_searching)
         setPadding(dp(4), dp(8), dp(4), dp(8))
-        contentDescription = "Toque para recolher ou expandir; arraste para mover a janela EasyApp"
+        contentDescription = str(R.string.overlay_header_cd)
         isClickable = true
     }
     private val header = LinearLayout(context).apply {
@@ -45,7 +47,7 @@ class TranslationOverlayController(
         gravity = Gravity.CENTER_VERTICAL
     }
     private val collapseButton = actionButton("−") { toggleCollapsed() }.apply {
-        contentDescription = "Recolher ou expandir painel da tradução"
+        contentDescription = str(R.string.overlay_collapse_cd)
     }
     private val translationBand = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -55,7 +57,7 @@ class TranslationOverlayController(
     private val translationScroll = ScrollView(context)
     private val translations = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
     private val tapHint = TextView(context).apply {
-        text = "Toque numa tradução para entender o que ela quer dizer"
+        text = str(R.string.overlay_tap_hint)
         setTextColor(MUTED_ON_INK)
         textSize = 11f
         setPadding(0, dp(4), 0, 0)
@@ -67,7 +69,7 @@ class TranslationOverlayController(
         setPadding(dp(10), dp(8), dp(10), dp(8))
         background = rounded(0xFF0E6B4D.toInt(), 10f)
         visibility = View.GONE
-        contentDescription = "Explicação do Claude; toque para fechar"
+        contentDescription = str(R.string.overlay_explanation_cd)
         setOnClickListener { hideExplanation() }
     }
     private var explainedSource: String? = null
@@ -75,7 +77,7 @@ class TranslationOverlayController(
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
     }
-    private val pauseButton = actionButton("Pausar") { onPauseOrResume() }
+    private val pauseButton = actionButton(str(R.string.action_pause)) { onPauseOrResume() }
     private val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.MATCH_PARENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
@@ -112,11 +114,11 @@ class TranslationOverlayController(
         controls.addView(actionButton("A-") { setFontSize(fontSize - 1f) }, LinearLayout.LayoutParams(0, dp(38), 1f))
         controls.addView(actionButton("A+") { setFontSize(fontSize + 1f) }, LinearLayout.LayoutParams(0, dp(38), 1f))
         controls.addView(pauseButton, LinearLayout.LayoutParams(0, dp(38), 1f))
-        controls.addView(actionButton("Fechar") { onStop() }, LinearLayout.LayoutParams(0, dp(38), 1f))
+        controls.addView(actionButton(str(R.string.action_close)) { onStop() }, LinearLayout.LayoutParams(0, dp(38), 1f))
         val opacityControl = SeekBar(context).apply {
             max = 100
             progress = backgroundAlpha
-            contentDescription = "Transparência da sobreposição"
+            contentDescription = str(R.string.overlay_opacity_cd)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                     backgroundAlpha = progress.coerceAtLeast(35)
@@ -156,8 +158,9 @@ class TranslationOverlayController(
             }
         }
         val online = results.any { it.online }
-        status.text = message ?: if (online) "EasyApp · tradução com Claude ✦" else "EasyApp · tradução ao vivo"
-        pauseButton.text = if (message?.contains("pausad", ignoreCase = true) == true) "Retomar" else "Pausar"
+        status.text = message ?: if (online) str(R.string.overlay_claude) else str(R.string.overlay_live)
+        // O estado vem da sessão, não do texto da mensagem: o texto muda com o idioma do app.
+        pauseButton.text = if (SessionStateHolder.snapshot.value.status == SessionStatus.PAUSED) str(R.string.action_resume) else str(R.string.action_pause)
         hasResults = results.isNotEmpty()
         translationBand.visibility = if (!collapsed && hasResults) View.VISIBLE else View.GONE
         if (explainedSource != null && results.none { it.source == explainedSource }) hideExplanation()
@@ -178,9 +181,9 @@ class TranslationOverlayController(
                 textSize = fontSize
                 setPadding(0, dp(3), 0, dp(3))
                 contentDescription = buildString {
-                    append("Tradução de: ${item.source}")
-                    if (item.online) append(", feita pelo Claude")
-                    if (onExplain != null && item.translated.isNotBlank()) append(". Toque para explicar")
+                    append(str(R.string.overlay_translation_of, item.source))
+                    if (item.online) append(str(R.string.overlay_by_claude))
+                    if (onExplain != null && item.translated.isNotBlank()) append(str(R.string.overlay_tap_to_explain))
                 }
                 val explain = onExplain
                 if (explain != null && item.translated.isNotBlank()) {

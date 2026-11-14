@@ -52,6 +52,7 @@ import com.easyapp.translator.ui.theme.EasyColors
 import com.easyapp.translator.ui.theme.EasyTheme
 import com.easyapp.translator.ui.theme.Radius
 import com.easyapp.translator.ui.theme.Space
+import com.easyapp.translator.str
 
 /**
  * Página rolável com ação fixa embaixo (opcional). A ação fica sempre visível,
@@ -105,7 +106,7 @@ fun SubPageTopBar(title: String, onBack: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack, modifier = Modifier.size(Space.minTouch)) {
-            Icon(painterResource(R.drawable.ic_ui_arrow_left), contentDescription = "Voltar", tint = colors.text)
+            Icon(painterResource(R.drawable.ic_ui_arrow_left), contentDescription = str(R.string.cd_back), tint = colors.text)
         }
         Text(
             title,
@@ -156,7 +157,7 @@ fun LanguageBar(
                 Modifier.size(40.dp).clip(Radius.pill).background(colors.brandBg),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(painterResource(R.drawable.ic_ui_swap), contentDescription = "Inverter idiomas", tint = colors.brand, modifier = Modifier.size(20.dp))
+                Icon(painterResource(R.drawable.ic_ui_swap), contentDescription = str(R.string.cd_swap), tint = colors.brand, modifier = Modifier.size(20.dp))
             }
         }
         LanguageSlot(rightTitle, rightCode, onPickRight, Modifier.weight(1f), alignEnd = true)
@@ -170,7 +171,7 @@ private fun LanguageSlot(title: String, code: String, onClick: () -> Unit, modif
     Column(
         modifier
             .clip(Radius.input)
-            .clickable(role = Role.Button, onClickLabel = "Trocar $title", onClick = onClick)
+            .clickable(role = Role.Button, onClickLabel = str(R.string.cd_change, title), onClick = onClick)
             .heightIn(min = 64.dp)
             .padding(horizontal = Space.sm, vertical = Space.sm),
         horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
@@ -311,7 +312,7 @@ fun IllustratedChoice(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, Modifier.weight(1f), style = EasyTheme.type.rowTitle, color = colors.text, maxLines = 2)
             if (selected) {
-                Icon(painterResource(R.drawable.ic_ui_check), contentDescription = "Selecionado", tint = colors.brand, modifier = Modifier.size(18.dp))
+                Icon(painterResource(R.drawable.ic_ui_check), contentDescription = str(R.string.cd_selected), tint = colors.brand, modifier = Modifier.size(18.dp))
             }
         }
         Text(description, style = EasyTheme.type.rowSub, color = colors.textBody)

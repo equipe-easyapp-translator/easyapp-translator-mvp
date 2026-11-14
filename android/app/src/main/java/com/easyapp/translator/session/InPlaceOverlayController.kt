@@ -26,6 +26,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import kotlin.math.abs
 import kotlin.math.max
+import com.easyapp.translator.R
+import com.easyapp.translator.str
 
 /**
  * Interface do estilo "No lugar do texto" (História 7): um botão flutuante e
@@ -53,7 +55,7 @@ class InPlaceOverlayController(
     private val restoreSafety = Runnable { restoreAfterCapture() }
 
     private val translateButton = Button(context).apply {
-        text = "Traduzir"
+        text = str(R.string.inplace_translate)
         textSize = 14f
         isAllCaps = false
         setTextColor(Color.WHITE)
@@ -62,7 +64,7 @@ class InPlaceOverlayController(
         minHeight = dp(44)
         minimumHeight = dp(44)
         setPadding(dp(16), 0, dp(16), 0)
-        contentDescription = "Traduzir o texto desta tela"
+        contentDescription = str(R.string.inplace_translate_cd)
         setOnClickListener { onTranslateClicked() }
     }
     private val stopButton = Button(context).apply {
@@ -76,7 +78,7 @@ class InPlaceOverlayController(
         minHeight = dp(44)
         minimumHeight = dp(44)
         setPadding(0, 0, 0, 0)
-        contentDescription = "Parar a tradução de tela"
+        contentDescription = str(R.string.inplace_stop_cd)
         setOnClickListener { onStop() }
     }
     private val dragHandle = TextView(context).apply {
@@ -85,14 +87,14 @@ class InPlaceOverlayController(
         setTextColor(MUTED_ON_INK)
         gravity = Gravity.CENTER
         setPadding(dp(4), 0, dp(8), 0)
-        contentDescription = "Arraste para mover o botão"
+        contentDescription = str(R.string.inplace_drag_cd)
     }
     private val status = TextView(context).apply {
         textSize = 11.5f
         setTextColor(MUTED_ON_INK)
         maxWidth = dp(220)
         setPadding(dp(4), dp(6), dp(4), 0)
-        text = "Preparando…"
+        text = str(R.string.preparing)
     }
     private val bubble = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -164,7 +166,7 @@ class InPlaceOverlayController(
             clearTranslations(notify = false)
             busy = false
             restoreAfterCapture()
-            status.text = "Pausado. Retome pela notificação ou pelo app."
+            status.text = str(R.string.inplace_paused)
         } else {
             status.text = InPlaceSnapshotPipeline.READY_STATUS
         }
@@ -192,12 +194,12 @@ class InPlaceOverlayController(
             attachBubble()
             val online = items.count { it.online }
             status.text = message ?: buildString {
-                append("${items.size} trechos traduzidos")
+                append(str(R.string.inplace_count, items.size))
                 if (online > 0) append(" · Claude ✦")
-                append(". Toque na tela para voltar ao original.")
+                append(str(R.string.inplace_tap_to_restore))
             }
         } else {
-            status.text = message ?: "Nada para traduzir nesta tela."
+            status.text = message ?: str(R.string.inplace_nothing)
         }
         refreshButton()
     }
@@ -206,7 +208,7 @@ class InPlaceOverlayController(
     fun onScreenChanged() {
         if (!layerAttached) return
         clearTranslations(notify = false)
-        status.text = "A tela mudou. Toque em Traduzir de novo."
+        status.text = str(R.string.inplace_changed)
     }
 
     fun hide() {
@@ -222,7 +224,7 @@ class InPlaceOverlayController(
             return
         }
         busy = true
-        status.text = "Lendo a tela…"
+        status.text = str(R.string.inplace_reading)
         refreshButton()
         onTranslate()
     }
@@ -247,9 +249,9 @@ class InPlaceOverlayController(
 
     private fun refreshButton() {
         translateButton.text = when {
-            busy -> "Traduzindo…"
-            layerAttached -> "Limpar"
-            else -> "Traduzir"
+            busy -> str(R.string.translating_short)
+            layerAttached -> str(R.string.inplace_clear)
+            else -> str(R.string.inplace_translate)
         }
         translateButton.isEnabled = !paused && !busy
         translateButton.alpha = if (translateButton.isEnabled) 1f else 0.6f

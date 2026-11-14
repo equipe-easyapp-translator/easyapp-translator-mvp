@@ -15,6 +15,26 @@ import com.easyapp.translator.session.SessionSnapshot
 import com.easyapp.translator.translation.ClaudeUsage
 import com.easyapp.translator.ui.home.ClaudeUiState
 
+/**
+ * Idioma da interface. Português, italiano e inglês aparecem no próprio idioma
+ * (é assim que cada pessoa procura o seu); só "Sistema" é traduzido.
+ */
+enum class AppLanguage(val tag: String) {
+    SYSTEM(""),
+    PORTUGUESE("pt-BR"),
+    ITALIAN("it"),
+    ENGLISH("en"),
+    ;
+
+    val label: String
+        get() = when (this) {
+            SYSTEM -> com.easyapp.translator.str(com.easyapp.translator.R.string.theme_system)
+            PORTUGUESE -> "Português"
+            ITALIAN -> "Italiano"
+            ENGLISH -> "English"
+        }
+}
+
 /** Tudo o que a interface mostra, num único objeto (T059). */
 data class AppUiState(
     val preferences: UserPreferences = UserPreferences.DEFAULT,
@@ -27,6 +47,9 @@ data class AppUiState(
     val claude: ClaudeUiState = ClaudeUiState(),
     val claudeUsage: ClaudeUsage = ClaudeUsage(),
     val appVersion: String = "",
+    val appLanguage: AppLanguage = AppLanguage.SYSTEM,
+    /** O seletor de idioma por app só existe no Android 13+. */
+    val appLanguageSelectable: Boolean = false,
 )
 
 /** Tudo o que a interface pode pedir; implementado pela MainActivity. */
@@ -41,6 +64,7 @@ interface AppActions {
     fun setConversationLayout(layout: ConversationLayout)
     fun setScreenAudioCaptions(enabled: Boolean)
     fun resetPreferences()
+    fun setAppLanguage(language: AppLanguage)
 
     fun start(mode: AppMode)
     fun pause()

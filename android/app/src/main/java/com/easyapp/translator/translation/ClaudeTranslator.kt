@@ -18,6 +18,8 @@ import java.time.Duration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.easyapp.translator.R
+import com.easyapp.translator.str
 
 /** Resultado de uma chamada ao Claude: sucesso ou um motivo de falha já em português para o usuário. */
 sealed interface ClaudeResult<out T> {
@@ -132,31 +134,31 @@ class ClaudeTranslator(apiKey: String) {
             val message = client.messages().create(params)
             ClaudeUsageHolder.record(message)
             if (message.stopReason().orElse(null) == StopReason.REFUSAL) {
-                return failed("o Claude recusou este texto")
+                return failed(str(R.string.claude_err_refused))
             }
             val text = message.content().mapNotNull { block -> block.text().orElse(null)?.text() }.joinToString("\n")
-            if (text.isBlank()) failed("resposta vazia do Claude") else ClaudeResult.Ok(parse(text))
+            if (text.isBlank()) failed(str(R.string.claude_err_empty)) else ClaudeResult.Ok(parse(text))
         } catch (_: UnauthorizedException) {
-            failed("chave de API inválida ou revogada", permanent = true)
+            failed(str(R.string.claude_err_key), permanent = true)
         } catch (_: PermissionDeniedException) {
-            failed("a chave não tem permissão para usar este modelo", permanent = true)
+            failed(str(R.string.claude_err_permission), permanent = true)
         } catch (_: RateLimitException) {
-            failed("limite de uso da API atingido; aguarde um pouco")
+            failed(str(R.string.claude_err_rate))
         } catch (_: OverloadedException) {
-            failed("o serviço do Claude está sobrecarregado")
+            failed(str(R.string.claude_err_overloaded))
         } catch (exception: BadRequestException) {
             val detail = exception.message.orEmpty()
             when {
-                detail.contains("credit", ignoreCase = true) -> failed("sem crédito na conta da Anthropic", permanent = true)
-                detail.contains("limit", ignoreCase = true) -> failed("limite de gasto da conta atingido", permanent = true)
-                else -> failed("pedido recusado pela API")
+                detail.contains("credit", ignoreCase = true) -> failed(str(R.string.claude_err_credit), permanent = true)
+                detail.contains("limit", ignoreCase = true) -> failed(str(R.string.claude_err_spend), permanent = true)
+                else -> failed(str(R.string.claude_err_bad_request))
             }
         } catch (_: AnthropicServiceException) {
-            failed("o serviço do Claude respondeu com erro")
+            failed(str(R.string.claude_err_service))
         } catch (_: AnthropicIoException) {
-            failed("sem conexão com o Claude")
+            failed(str(R.string.claude_err_network))
         } catch (_: RuntimeException) {
-            failed("falha inesperada ao chamar o Claude")
+            failed(str(R.string.claude_err_unexpected))
         }
     }
 

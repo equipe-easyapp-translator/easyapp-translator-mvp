@@ -130,6 +130,21 @@ Como usuário com necessidades próprias (vista cansada, pouca familiaridade com
 5. **Dado** que a conversa está no layout frente a frente, **quando** a sessão começa, **então** a metade de cima da tela fica virada para a outra pessoa, cada metade tem o seu botão de falar e mostra a última tradução no idioma de quem lê.
 6. **Dado** que houve vários turnos na conversa, **quando** o usuário olha a página, **então** vê o histórico da sessão em balões, que é apagado ao encerrar.
 
+### História 9 — Usar o app no meu idioma (P1)
+
+Como turista ou recém-chegado que não lê português (persona Marco, italiano), quero que os botões, avisos e mensagens do app estejam no meu idioma, para entender o app que foi feito para mim.
+
+**Base de produto**: a persona e os três entrevistados são italianos; o maior emissor de turistas para o Brasil é a Argentina (dado da Embratur em `Validação da proposta de valor.docx`). Uma interface só em português contradiz o público.
+
+**Teste independente**: Num celular em italiano, abrir o app pela primeira vez e conferir que tudo está em italiano e que o par inicial é português → italiano; em Ajustes, trocar para English e depois para Português.
+
+**Cenários de aceitação**:
+
+1. **Dado** que o celular está em português, italiano ou inglês, **quando** o app abre, **então** a interface aparece nesse idioma.
+2. **Dado** que o celular está em outro idioma (espanhol, alemão…), **quando** o app abre, **então** a interface aparece em inglês.
+3. **Dado** que é o primeiro uso, **quando** o par de idiomas é definido, **então** o idioma do celular é o "seu" (destino) e o português é o da outra pessoa; num celular em português, o par é inglês → português.
+4. **Dado** um Android 13 ou superior, **quando** o usuário escolhe o idioma do app nos Ajustes, **então** o app muda na hora e mantém a escolha; no Android 11 e 12, o app explica que segue o idioma do celular.
+
 ## Limites do MVP
 
 Inclui um app Android EasyApp / ScreenTranslator com dois modos: (1) tela/apps, com OCR, detecção de mudanças, tradução em sobreposição e legendas de áudio de reprodução quando capturável; (2) conversa presencial por voz, com microfone, transcrição, tradução bidirecional PT-BR↔EN/ES e síntese de fala. Inclui modos de processamento, histórico efêmero e opção explícita para salvar uma tradução selecionada.
@@ -170,6 +185,9 @@ Fora do MVP: garantia de funcionamento em qualquer app, contorno de DRM ou bloqu
 - **FR-030**: O modo Conversa DEVE oferecer o layout frente a frente (metade da tela invertida para o interlocutor, um botão de falar por pessoa) e o layout lado a lado, à escolha do usuário.
 - **FR-031**: O modo Conversa DEVE mostrar o histórico de turnos da sessão, só em memória, apagado ao encerrar (FR-011).
 - **FR-032**: Todo controle DEVE ter área de toque de pelo menos 48 dp e descrição para leitor de tela.
+- **FR-033**: A interface DEVE estar disponível em português, italiano e inglês, com o inglês como idioma de reserva para qualquer outro idioma do aparelho; nenhum texto de interface fica fixo no código.
+- **FR-034**: Nenhuma decisão do app pode depender do texto de uma mensagem (o texto muda com o idioma); estados vêm de valores próprios.
+- **FR-035**: No primeiro uso, o par de idiomas DEVE partir do idioma do aparelho (FR-033, cenário 3 da História 9).
 
 ## Requisitos não funcionais
 

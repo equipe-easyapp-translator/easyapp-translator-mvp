@@ -7,38 +7,55 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.easyapp.translator.session.AppMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import com.easyapp.translator.R
+import com.easyapp.translator.str
 
-enum class QualityMode(val label: String) {
-    ECONOMY("Econômico"),
-    BALANCED("Equilibrado"),
-    QUALITY("Qualidade"),
+enum class QualityMode(private val labelRes: Int) {
+    ECONOMY(R.string.quality_economy),
+    BALANCED(R.string.quality_balanced),
+    QUALITY(R.string.quality_quality),
+    ;
+
+    val label: String get() = str(labelRes)
 }
 
 /** Como a tradução do modo Tela aparece (FR-004). */
-enum class OverlayStyle(val label: String) {
-    IN_PLACE("No lugar do texto"),
-    FLOATING("Janela flutuante"),
+enum class OverlayStyle(private val labelRes: Int) {
+    IN_PLACE(R.string.style_in_place),
+    FLOATING(R.string.style_floating),
+    ;
+
+    val label: String get() = str(labelRes)
 }
 
 /** Tema do app (FR-029). */
-enum class ThemeMode(val label: String) {
-    SYSTEM("Sistema"),
-    LIGHT("Claro"),
-    DARK("Escuro"),
+enum class ThemeMode(private val labelRes: Int) {
+    SYSTEM(R.string.theme_system),
+    LIGHT(R.string.theme_light),
+    DARK(R.string.theme_dark),
+    ;
+
+    val label: String get() = str(labelRes)
 }
 
 /** Escala de texto (FR-029). Usada tanto para o app quanto para a tradução sobre a tela. */
-enum class TextSize(val label: String, val scale: Float) {
-    SMALL("Pequeno", 0.9f),
-    DEFAULT("Padrão", 1f),
-    LARGE("Grande", 1.15f),
-    HUGE("Muito grande", 1.3f),
+enum class TextSize(private val labelRes: Int, val scale: Float) {
+    SMALL(R.string.size_small, 0.9f),
+    DEFAULT(R.string.size_default, 1f),
+    LARGE(R.string.size_large, 1.15f),
+    HUGE(R.string.size_huge, 1.3f),
+    ;
+
+    val label: String get() = str(labelRes)
 }
 
 /** Disposição da conversa (FR-030). */
-enum class ConversationLayout(val label: String) {
-    FACE_TO_FACE("Frente a frente"),
-    SIDE_BY_SIDE("Lado a lado"),
+enum class ConversationLayout(private val labelRes: Int) {
+    FACE_TO_FACE(R.string.layout_face),
+    SIDE_BY_SIDE(R.string.layout_side),
+    ;
+
+    val label: String get() = str(labelRes)
 }
 
 data class UserPreferences(
@@ -67,8 +84,8 @@ class UserPreferencesRepository(context: Context) {
         UserPreferences(
             qualityMode = enumOrDefault(stored[QUALITY_MODE], QualityMode.BALANCED),
             preferredMode = enumOrDefault(stored[PREFERRED_MODE], AppMode.SCREEN),
-            sourceLanguage = stored[SOURCE_LANGUAGE]?.takeIf { it in SUPPORTED_LANGUAGES } ?: "en",
-            targetLanguage = stored[TARGET_LANGUAGE]?.takeIf { it in SUPPORTED_TARGET_LANGUAGES } ?: "pt",
+            sourceLanguage = stored[SOURCE_LANGUAGE]?.takeIf { it in SUPPORTED_LANGUAGES } ?: defaultPair().first,
+            targetLanguage = stored[TARGET_LANGUAGE]?.takeIf { it in SUPPORTED_TARGET_LANGUAGES } ?: defaultPair().second,
             overlayStyle = enumOrDefault(stored[OVERLAY_STYLE], OverlayStyle.IN_PLACE),
             themeMode = enumOrDefault(stored[THEME_MODE], ThemeMode.SYSTEM),
             appTextSize = enumOrDefault(stored[APP_TEXT_SIZE], TextSize.DEFAULT),
@@ -131,6 +148,17 @@ class UserPreferencesRepository(context: Context) {
         val CONVERSATION_LAYOUT = stringPreferencesKey("conversation_layout")
         val SUPPORTED_LANGUAGES = setOf("en", "es", "it", "fr", "pt")
         val SUPPORTED_TARGET_LANGUAGES = setOf("pt", "en", "es", "it", "fr")
+
+        /**
+         * Par inicial a partir do idioma do celular: o idioma do aparelho é o "seu"
+         * (destino). Um brasileiro traduz do inglês; um italiano, um inglês ou quem
+         * usa outro idioma traduz do português, que é o que encontra no Brasil.
+         */
+        fun defaultPair(): Pair<String, String> = when (val device = java.util.Locale.getDefault().language) {
+            "pt" -> "en" to "pt"
+            in SUPPORTED_TARGET_LANGUAGES -> "pt" to device
+            else -> "pt" to "en"
+        }
 
         inline fun <reified T : Enum<T>> enumOrDefault(value: String?, default: T): T =
             value?.let { stored -> enumValues<T>().firstOrNull { it.name == stored } } ?: default

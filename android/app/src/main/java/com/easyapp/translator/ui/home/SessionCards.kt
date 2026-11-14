@@ -36,6 +36,7 @@ import com.easyapp.translator.ui.components.Tone
 import com.easyapp.translator.ui.theme.EasyTheme
 import com.easyapp.translator.ui.theme.Radius
 import com.easyapp.translator.ui.theme.Space
+import com.easyapp.translator.str
 
 /** Voz, velocidade e volume da tradução falada (folha "Voz" da conversa). */
 @Composable
@@ -54,17 +55,17 @@ internal fun VoiceOptions(
         inactiveTrackColor = colors.surfaceAlt,
     )
 
-    Overline("Voz")
+    Overline(str(R.string.voice_button))
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            state.availableVoices.firstOrNull { it.id == state.selectedVoiceId }?.label ?: "Nenhuma voz offline instalada",
+            state.availableVoices.firstOrNull { it.id == state.selectedVoiceId }?.label ?: str(R.string.voice_none),
             modifier = Modifier.weight(1f),
             style = EasyTheme.type.body,
             color = colors.text,
         )
         Box {
             EasyButton(
-                "Trocar",
+                str(R.string.action_change),
                 { voiceMenuExpanded = true },
                 kind = ButtonKind.Ghost,
                 enabled = enabled && state.availableVoices.isNotEmpty(),
@@ -79,7 +80,7 @@ internal fun VoiceOptions(
             }
         }
     }
-    SliderRow("Velocidade", "${"%.2f".format(state.speechRate)}×") {
+    SliderRow(str(R.string.voice_speed), "${"%.2f".format(state.speechRate)}×") {
         Slider(
             value = state.speechRate,
             onValueChange = onRateChanged,
@@ -89,7 +90,7 @@ internal fun VoiceOptions(
             colors = sliderColors,
         )
     }
-    SliderRow("Volume", "${(state.volume * 100).toInt()}%") {
+    SliderRow(str(R.string.voice_volume), "${(state.volume * 100).toInt()}%") {
         Slider(
             value = state.volume,
             onValueChange = onVolumeChanged,
@@ -101,10 +102,10 @@ internal fun VoiceOptions(
     }
     val recognitionMode = when {
         state.offlineSpeechAvailable -> "offline"
-        state.speechRecognizerAvailable -> "serviço padrão do Android"
-        else -> "indisponível"
+        state.speechRecognizerAvailable -> str(R.string.voice_default_service)
+        else -> str(R.string.voice_unavailable)
     }
-    Hint("Reconhecimento: $recognitionMode · Voz: ${if (state.offlineTtsAvailable) "offline disponível" else "sem voz offline compatível"}.")
+    Hint(str(R.string.voice_status, recognitionMode, if (state.offlineTtsAvailable) str(R.string.voice_offline_ok) else str(R.string.voice_offline_missing)))
 }
 
 @Composable
@@ -122,8 +123,8 @@ private fun SliderRow(label: String, value: String, slider: @Composable () -> Un
 internal fun AudioCaptionsCard(state: AudioCaptionSnapshot, enabled: Boolean, onClear: () -> Unit) {
     val colors = EasyTheme.colors
     EasyCard {
-        CardHeader("Legendas do áudio", icon = R.drawable.ic_ui_captions) {
-            if (state.vadActive) StatusBadge("Som detectado", Tone.Positive)
+        CardHeader(str(R.string.captions_title), icon = R.drawable.ic_ui_captions) {
+            if (state.vadActive) StatusBadge(str(R.string.captions_sound), Tone.Positive)
         }
         Hint(state.status, color = colors.textBody)
         if (state.partialText.isNotBlank()) {
@@ -134,14 +135,14 @@ internal fun AudioCaptionsCard(state: AudioCaptionSnapshot, enabled: Boolean, on
                 Modifier.fillMaxWidth().clip(Radius.card).background(colors.surfaceAlt).padding(Space.sm),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                Text("TRECHO ${item.turn}", style = EasyTheme.type.label, color = colors.textMuted)
+                Text(str(R.string.captions_part, item.turn), style = EasyTheme.type.label, color = colors.textMuted)
                 Text(item.source, style = EasyTheme.type.meta, color = colors.textBody)
                 Text(item.translated, style = EasyTheme.type.body, color = colors.text)
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Hint("Os trechos ficam só na memória e somem ao parar.", Modifier.weight(1f))
-            EasyButton("Limpar", onClear, kind = ButtonKind.Ghost, enabled = enabled && state.history.isNotEmpty())
+            Hint(str(R.string.captions_memory), Modifier.weight(1f))
+            EasyButton(str(R.string.inplace_clear), onClear, kind = ButtonKind.Ghost, enabled = enabled && state.history.isNotEmpty())
         }
     }
 }

@@ -40,7 +40,10 @@ import com.easyapp.translator.translation.ClaudeKeyStore
 import com.easyapp.translator.translation.ClaudeResult
 import com.easyapp.translator.translation.ClaudeTranslator
 import com.easyapp.translator.translation.ClaudeUsageHolder
+import android.app.LocaleManager
+import android.os.LocaleList
 import com.easyapp.translator.ui.AppActions
+import com.easyapp.translator.ui.AppLanguage
 import com.easyapp.translator.ui.AppUiState
 import com.easyapp.translator.ui.home.ClaudeUiState
 import com.easyapp.translator.ui.navigation.AppRoot
@@ -49,6 +52,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.easyapp.translator.R
+import com.easyapp.translator.str
 
 data class PermissionUiState(
     val recordAudioGranted: Boolean = false,
@@ -78,9 +83,9 @@ class MainActivity : ComponentActivity() {
         if (mode != null) {
             when {
                 permissionUiState.notificationsRequired && !permissionUiState.notificationsGranted ->
-                    SessionStateHolder.stop("Ative notificações para acompanhar e parar a sessão em andamento")
+                    SessionStateHolder.stop(str(R.string.main_need_notifications))
                 mode == AppMode.CONVERSATION && !permissionUiState.recordAudioGranted ->
-                    SessionStateHolder.stop("A permissão de microfone não foi concedida")
+                    SessionStateHolder.stop(str(R.string.main_mic_denied))
                 else -> continueStartAfterRuntimePermissions(mode)
             }
         }
@@ -103,9 +108,9 @@ class MainActivity : ComponentActivity() {
                         hasPermission(Manifest.permission.RECORD_AUDIO),
                 )
             runCatching { startForegroundService(this, startIntent) }
-                .onFailure { SessionStateHolder.stop("Não foi possível iniciar o serviço da sessão") }
+                .onFailure { SessionStateHolder.stop(str(R.string.main_service_failed)) }
         } else if (mode != null) {
-            SessionStateHolder.stop("A captura de tela não foi autorizada")
+            SessionStateHolder.stop(str(R.string.main_capture_denied))
         }
     }
 
@@ -128,6 +133,8 @@ class MainActivity : ComponentActivity() {
             @Suppress("DEPRECATION")
             packageManager.getPackageInfo(packageName, 0).versionName
         }.getOrNull().orEmpty()
+        // A tela é recriada quando o idioma do app muda, então basta ler uma vez aqui.
+        val appLanguage = currentAppLanguage()
         setContent {
             val preferences by preferencesRepository.preferences.collectAsState(initial = UserPreferences.DEFAULT)
             val session by SessionStateHolder.snapshot.collectAsState()
@@ -163,6 +170,8 @@ class MainActivity : ComponentActivity() {
                         claude = claudeUiState,
                         claudeUsage = claudeUsage,
                         appVersion = appVersion,
+                        appLanguage = appLanguage,
+                        appLanguageSelectable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
                     ),
                     actions = appActions,
                 )
@@ -211,6 +220,13 @@ class MainActivity : ComponentActivity() {
 
         override fun resetPreferences() {
             lifecycleScope.launch { preferencesRepository.resetAll() }
+        }
+
+        /** O Android 13+ guarda a escolha e recria a tela no novo idioma. */
+        override fun setAppLanguage(language: AppLanguage) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+            val locales = if (language == AppLanguage.SYSTEM) LocaleList.getEmptyLocaleList() else LocaleList.forLanguageTags(language.tag)
+            runCatching { getSystemService(LocaleManager::class.java).applicationLocales = locales }
         }
 
         override fun start(mode: AppMode) = requestSessionStart(mode)
@@ -313,7 +329,7 @@ class MainActivity : ComponentActivity() {
             }
             AppMode.CONVERSATION -> {
                 if (!hasPermission(Manifest.permission.RECORD_AUDIO)) {
-                    SessionStateHolder.stop("Conceda acesso ao microfone para iniciar a conversa por voz")
+                    SessionStateHolder.stop(str(R.string.main_grant_mic))
                 } else {
                     launchSessionService(mode)
                 }
@@ -353,25 +369,25 @@ class MainActivity : ComponentActivity() {
 
     private fun launchSessionService(mode: AppMode) {
         runCatching { startForegroundService(this, SessionService.startIntent(this, mode)) }
-            .onFailure { SessionStateHolder.stop("Não foi possível iniciar o serviço da sessão") }
+            .onFailure { SessionStateHolder.stop(str(R.string.main_service_failed)) }
     }
 
     private fun sendSessionAction(action: String) {
         runCatching { startService(SessionService.controlIntent(this, action)) }
-            .onFailure { SessionStateHolder.stop("O serviço da sessão já foi encerrado") }
+            .onFailure { SessionStateHolder.stop(str(R.string.main_service_ended)) }
     }
 
     private fun sendConversationValue(action: String, key: String, value: String) {
         val intent = SessionService.conversationIntent(this, action).putExtra(key, value)
         runCatching { startService(intent) }
-            .onFailure { SessionStateHolder.stop("O serviço da conversa já foi encerrado") }
+            .onFailure { SessionStateHolder.stop(str(R.string.main_conversation_ended)) }
     }
 
     private fun sendConversationFloat(action: String, value: Float) {
         val intent = SessionService.conversationIntent(this, action)
             .putExtra(SessionService.EXTRA_CONVERSATION_VALUE, value)
         runCatching { startService(intent) }
-            .onFailure { SessionStateHolder.stop("O serviço da conversa já foi encerrado") }
+            .onFailure { SessionStateHolder.stop(str(R.string.main_conversation_ended)) }
     }
 
     private fun openOverlaySettings() {
@@ -380,10 +396,22 @@ class MainActivity : ComponentActivity() {
             Uri.parse("package:$packageName"),
         )
         runCatching { startActivity(settingsIntent) }
-            .onFailure { SessionStateHolder.stop("Não foi possível abrir as permissões de sobreposição") }
+            .onFailure { SessionStateHolder.stop(str(R.string.main_overlay_settings_failed)) }
     }
 
-    private fun refreshClaudeState(testing: Boolean = false, testMessage: String? = null) {
+    private fun currentAppLanguage(): AppLanguage {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return AppLanguage.SYSTEM
+        val locales = runCatching { getSystemService(LocaleManager::class.java).applicationLocales }.getOrNull()
+        if (locales == null || locales.isEmpty) return AppLanguage.SYSTEM
+        return when (locales[0].language) {
+            "pt" -> AppLanguage.PORTUGUESE
+            "it" -> AppLanguage.ITALIAN
+            "en" -> AppLanguage.ENGLISH
+            else -> AppLanguage.SYSTEM
+        }
+    }
+
+    private fun refreshClaudeState(testing: Boolean = false, testMessage: String? = null, testSucceeded: Boolean = false) {
         claudeUiState = ClaudeUiState(
             hasKey = claudeKeyStore.hasKey,
             keyHint = claudeKeyStore.hint,
@@ -391,42 +419,52 @@ class MainActivity : ComponentActivity() {
             enabled = claudeKeyStore.enabled,
             testing = testing,
             testMessage = testMessage,
+            testSucceeded = testSucceeded,
         )
     }
 
     private fun saveClaudeKey(key: String) {
         val saved = runCatching { claudeKeyStore.save(key) }.isSuccess
-        refreshClaudeState(testMessage = if (saved) null else "Não foi possível guardar a chave neste aparelho.")
+        refreshClaudeState(testMessage = if (saved) null else str(R.string.claude_key_save_failed))
         if (saved) testClaude()
     }
 
-    /** Uma tradução mínima ("Hello!") para confirmar a chave; custa uma fração de centavo. */
+    /**
+     * Uma tradução mínima para confirmar a chave; custa uma fração de centavo.
+     * Traduz para o idioma da interface, para o resultado fazer sentido para quem lê.
+     */
     private fun testClaude() {
         val key = claudeKeyStore.load()
         if (key == null) {
-            refreshClaudeState(testMessage = "Não foi possível ler a chave salva. Remova e adicione de novo.")
+            refreshClaudeState(testMessage = str(R.string.claude_key_read_failed))
             return
         }
         refreshClaudeState(testing = true)
+        val uiLanguage = resources.configuration.locales[0].language
+        val (sample, from, to) = when (uiLanguage) {
+            "en" -> Triple("Olá, tudo bem?", "pt", "en")
+            "it" -> Triple("Hello!", "en", "it")
+            else -> Triple("Hello!", "en", "pt")
+        }
         lifecycleScope.launch {
-            val message = withContext(Dispatchers.IO) {
+            val (message, ok) = withContext(Dispatchers.IO) {
                 runCatching {
                     val translator = ClaudeTranslator(key)
                     try {
-                        when (val result = translator.translateLines(listOf("Hello!"), "en", "pt")) {
-                            is ClaudeResult.Ok -> "Funcionou: “${result.value.firstOrNull() ?: "?"}”."
-                            is ClaudeResult.Failed -> "Não funcionou: ${result.reason}."
+                        when (val result = translator.translateLines(listOf(sample), from, to)) {
+                            is ClaudeResult.Ok -> str(R.string.claude_test_ok, result.value.firstOrNull() ?: "?") to true
+                            is ClaudeResult.Failed -> str(R.string.claude_test_failed, result.reason) to false
                         }
                     } finally {
                         translator.close()
                     }
-                }.getOrElse { "Não funcionou: o cliente do Claude não iniciou neste aparelho." }
+                }.getOrElse { str(R.string.claude_test_client_failed) to false }
             }
             if (SessionStateHolder.snapshot.value.status == com.easyapp.translator.session.SessionStatus.IDLE) {
                 // O teste não conta como gasto de uma sessão.
                 ClaudeUsageHolder.reset()
             }
-            refreshClaudeState(testMessage = message)
+            refreshClaudeState(testMessage = message, testSucceeded = ok)
         }
     }
 

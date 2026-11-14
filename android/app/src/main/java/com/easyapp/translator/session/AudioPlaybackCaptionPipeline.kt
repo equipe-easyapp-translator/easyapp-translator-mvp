@@ -21,6 +21,8 @@ import java.io.FileOutputStream
 import java.util.Locale
 import java.util.concurrent.Executors
 import kotlin.math.sqrt
+import com.easyapp.translator.R
+import com.easyapp.translator.str
 
 data class AudioCaptionUpdate(
     val status: String,
@@ -57,7 +59,7 @@ class AudioPlaybackCaptionPipeline(
     fun start() {
         if (closed || running) return
         if (Build.VERSION.SDK_INT < 29) {
-            emit("Captura de áudio interno exige Android 10 ou superior; OCR de tela continua ativo.", false)
+            emit(str(R.string.audio_needs_android10), false)
             return
         }
         try {
@@ -83,20 +85,20 @@ class AudioPlaybackCaptionPipeline(
             running = true
             record.startRecording()
             startRecognizer()
-            emit(if (Build.VERSION.SDK_INT >= 33 && recognizer != null) "Captura de reprodução iniciada; aguardando fala permitida pelo app de origem." else "Captura/VAD ativos. Legendas por fala de áudio interno exigem Android 13+ e serviço de reconhecimento compatível.", true)
+            emit(if (Build.VERSION.SDK_INT >= 33 && recognizer != null) str(R.string.audio_started) else str(R.string.audio_needs_android13), true)
             worker.execute { readAudio(record) }
         } catch (_: SecurityException) {
             stopCapture()
-            emit("Áudio interno indisponível: permissão ou política do Android bloqueou a captura. OCR continua ativo.", false)
+            emit(str(R.string.audio_blocked), false)
         } catch (_: RuntimeException) {
             stopCapture()
-            emit("Não foi possível iniciar o áudio interno; o app de origem pode não permitir captura. OCR continua ativo.", false)
+            emit(str(R.string.audio_start_failed), false)
         }
     }
 
     fun pause() {
         stopCapture()
-        emit("Sessão pausada; buffer temporário de áudio descartado.", false)
+        emit(str(R.string.audio_paused), false)
     }
 
     fun resume() = start()
@@ -142,7 +144,7 @@ class AudioPlaybackCaptionPipeline(
                     override fun onBufferReceived(buffer: ByteArray?) = Unit
                     override fun onEndOfSpeech() = Unit
                     override fun onError(error: Int) {
-                        if (running && !closed) emit("Reconhecimento offline indisponível ou sem fala reconhecível (erro $error); áudio não foi salvo.", true, vadActive)
+                        if (running && !closed) emit(str(R.string.audio_recognition_failed, error), true, vadActive)
                     }
                     override fun onResults(results: android.os.Bundle?) = accept(results, true)
                     override fun onPartialResults(partialResults: android.os.Bundle?) = accept(partialResults, false)
@@ -179,7 +181,7 @@ class AudioPlaybackCaptionPipeline(
         while (running && !closed) {
             val count = try { record.read(bytes, 0, bytes.size, AudioRecord.READ_BLOCKING) } catch (_: RuntimeException) { -1 }
             if (count <= 0) {
-                if (running) main.post { emit("O fluxo de áudio interno foi interrompido pelo Android ou pelo app de origem.", false) }
+                if (running) main.post { emit(str(R.string.audio_interrupted), false) }
                 break
             }
             var sum = 0.0
@@ -197,12 +199,12 @@ class AudioPlaybackCaptionPipeline(
             val active = now - lastVoiceAt < hangover
             if (active != vadActive) {
                 vadActive = active
-                main.post { if (running) emit(if (active) "Atividade de áudio detectada; aguardando texto." else "Pausa de áudio; aguardando próximo turno.", true, active) }
+                main.post { if (running) emit(if (active) str(R.string.audio_activity) else str(R.string.audio_pause_detected), true, active) }
             }
             if (active) runCatching { output?.write(bytes, 0, count) }
             bytes.fill(0, 0, count)
             if (now - lastVoiceAt > 8000L && now % 3000L < 120L) main.post {
-                if (running) emit("Sem áudio capturável. A origem pode estar silenciosa ou bloquear a captura (DRM/política); o Android não distingue esses casos.", true, false)
+                if (running) emit(str(R.string.audio_none), true, false)
             }
         }
         bytes.fill(0)
@@ -215,7 +217,7 @@ class AudioPlaybackCaptionPipeline(
         if (text.isBlank()) return
         if (!final) {
             AudioCaptionStateHolder.update { it.copy(partialText = text, vadActive = vadActive) }
-            main.post { if (running) emit("Transcrevendo áudio interno…", true, vadActive, text) }
+            main.post { if (running) emit(str(R.string.audio_transcribing), true, vadActive, text) }
             return
         }
         val normalized = text.lowercase(Locale.ROOT).replace(Regex("\\s+"), " ")
@@ -226,24 +228,24 @@ class AudioPlaybackCaptionPipeline(
         val currentConfiguration = configurationGeneration
         val localTranslator = translator ?: Translation.getClient(TranslatorOptions.Builder().setSourceLanguage(src).setTargetLanguage(dest).build()).also { translator = it }
         SessionStateHolder.updateTranslationModelStatus(
-            "Baixando ou verificando modelo offline: ${TranslationLanguages.choice(sourceLanguage).label} → ${TranslationLanguages.choice(targetLanguage).label}…",
+            str(R.string.model_checking, TranslationLanguages.choice(sourceLanguage).label, TranslationLanguages.choice(targetLanguage).label),
         )
         localTranslator.downloadModelIfNeeded(DownloadConditions.Builder().build())
             .addOnSuccessListener modelReady@{ localTranslator.translate(text).addOnSuccessListener translatedResult@{ translated ->
                 if (closed || !running || currentConfiguration != configurationGeneration) return@translatedResult
                 SessionStateHolder.updateTranslationModelStatus(
-                    "Modelo offline pronto: ${TranslationLanguages.choice(sourceLanguage).label} → ${TranslationLanguages.choice(targetLanguage).label}.",
+                    str(R.string.model_ready, TranslationLanguages.choice(sourceLanguage).label, TranslationLanguages.choice(targetLanguage).label),
                 )
                 val nextTurn = ++turn
                 AudioCaptionStateHolder.add(text, translated, nextTurn)
-                main.post { if (running) emit("Legenda de áudio interno · turno $nextTurn", true, vadActive, "", ScreenTranslation(text, translated, "Áudio interno · turno $nextTurn")) }
-            }.addOnFailureListener { if (!closed && running && currentConfiguration == configurationGeneration) main.post { emit("Falha na tradução local da legenda; baixe o modelo quando houver conexão.", running, vadActive) } } }
+                main.post { if (running) emit(str(R.string.audio_caption_turn, nextTurn), true, vadActive, "", ScreenTranslation(text, translated, str(R.string.audio_label_turn, nextTurn))) }
+            }.addOnFailureListener { if (!closed && running && currentConfiguration == configurationGeneration) main.post { emit(str(R.string.audio_translate_failed), running, vadActive) } } }
             .addOnFailureListener modelFailed@{
                 if (closed || !running || currentConfiguration != configurationGeneration) return@modelFailed
                 SessionStateHolder.updateTranslationModelStatus(
-                    "Modelo offline indisponível para ${TranslationLanguages.choice(sourceLanguage).label} → ${TranslationLanguages.choice(targetLanguage).label}. Conecte-se para baixar.",
+                    str(R.string.model_unavailable_connect, TranslationLanguages.choice(sourceLanguage).label, TranslationLanguages.choice(targetLanguage).label),
                 )
-                main.post { emit("Modelo local de tradução ausente; conecte-se para baixá-lo. Nenhum áudio foi enviado ou salvo.", running, vadActive) }
+                main.post { emit(str(R.string.audio_model_missing), running, vadActive) }
             }
     }
 
