@@ -48,8 +48,8 @@ data class AppUiState(
     val claudeUsage: ClaudeUsage = ClaudeUsage(),
     val appVersion: String = "",
     val appLanguage: AppLanguage = AppLanguage.SYSTEM,
-    /** O seletor de idioma por app só existe no Android 13+. */
-    val appLanguageSelectable: Boolean = false,
+    /** Primeira abertura: a tela de boas-vindas pede o idioma antes de tudo. */
+    val needsLanguageChoice: Boolean = false,
 )
 
 /** Tudo o que a interface pode pedir; implementado pela MainActivity. */
@@ -64,7 +64,10 @@ interface AppActions {
     fun setConversationLayout(layout: ConversationLayout)
     fun setScreenAudioCaptions(enabled: Boolean)
     fun resetPreferences()
+    /** Aplica o idioma e recarrega a interface. */
     fun setAppLanguage(language: AppLanguage)
+    /** A pessoa escolheu o idioma na boas-vindas; não mostrar de novo. */
+    fun completeLanguageChoice()
 
     fun start(mode: AppMode)
     fun pause()

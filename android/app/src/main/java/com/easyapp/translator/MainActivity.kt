@@ -40,8 +40,7 @@ import com.easyapp.translator.translation.ClaudeKeyStore
 import com.easyapp.translator.translation.ClaudeResult
 import com.easyapp.translator.translation.ClaudeTranslator
 import com.easyapp.translator.translation.ClaudeUsageHolder
-import android.app.LocaleManager
-import android.os.LocaleList
+import android.content.Context
 import com.easyapp.translator.ui.AppActions
 import com.easyapp.translator.ui.AppLanguage
 import com.easyapp.translator.ui.AppUiState
@@ -73,6 +72,7 @@ class MainActivity : ComponentActivity() {
     private val claudeKeyStore by lazy { ClaudeKeyStore(applicationContext) }
     private var claudeUiState by mutableStateOf(ClaudeUiState())
     private var currentOverlayStyle = OverlayStyle.IN_PLACE
+    private var needsLanguageChoice by mutableStateOf(false)
 
     private val runtimePermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -134,7 +134,8 @@ class MainActivity : ComponentActivity() {
             packageManager.getPackageInfo(packageName, 0).versionName
         }.getOrNull().orEmpty()
         // A tela é recriada quando o idioma do app muda, então basta ler uma vez aqui.
-        val appLanguage = currentAppLanguage()
+        val appLanguage = AppLocale.current(this)
+        needsLanguageChoice = !AppLocale.hasChosen(this)
         setContent {
             val preferences by preferencesRepository.preferences.collectAsState(initial = UserPreferences.DEFAULT)
             val session by SessionStateHolder.snapshot.collectAsState()
@@ -171,7 +172,7 @@ class MainActivity : ComponentActivity() {
                         claudeUsage = claudeUsage,
                         appVersion = appVersion,
                         appLanguage = appLanguage,
-                        appLanguageSelectable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
+                        needsLanguageChoice = needsLanguageChoice,
                     ),
                     actions = appActions,
                 )
@@ -222,11 +223,18 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch { preferencesRepository.resetAll() }
         }
 
-        /** O Android 13+ guarda a escolha e recria a tela no novo idioma. */
+        /**
+         * Guarda o idioma e recarrega a tela nele. No Android 11–12 também atualiza o
+         * contexto usado pelo serviço e pelas mensagens ([EasyApplication.refreshLocale]).
+         */
         override fun setAppLanguage(language: AppLanguage) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-            val locales = if (language == AppLanguage.SYSTEM) LocaleList.getEmptyLocaleList() else LocaleList.forLanguageTags(language.tag)
-            runCatching { getSystemService(LocaleManager::class.java).applicationLocales = locales }
+            if (AppLocale.apply(this@MainActivity, language)) EasyApplication.refreshLocale()
+            recreate()
+        }
+
+        override fun completeLanguageChoice() {
+            AppLocale.markChosen(this@MainActivity)
+            needsLanguageChoice = false
         }
 
         override fun start(mode: AppMode) = requestSessionStart(mode)
@@ -399,16 +407,9 @@ class MainActivity : ComponentActivity() {
             .onFailure { SessionStateHolder.stop(str(R.string.main_overlay_settings_failed)) }
     }
 
-    private fun currentAppLanguage(): AppLanguage {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return AppLanguage.SYSTEM
-        val locales = runCatching { getSystemService(LocaleManager::class.java).applicationLocales }.getOrNull()
-        if (locales == null || locales.isEmpty) return AppLanguage.SYSTEM
-        return when (locales[0].language) {
-            "pt" -> AppLanguage.PORTUGUESE
-            "it" -> AppLanguage.ITALIAN
-            "en" -> AppLanguage.ENGLISH
-            else -> AppLanguage.SYSTEM
-        }
+    /** No Android 11–12, aplica o idioma escolhido no app à tela (ver [AppLocale]). */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
     }
 
     private fun refreshClaudeState(testing: Boolean = false, testMessage: String? = null, testSucceeded: Boolean = false) {

@@ -35,6 +35,10 @@ import com.easyapp.translator.R
 import com.easyapp.translator.session.AppMode
 import com.easyapp.translator.session.SessionStatus
 import com.easyapp.translator.ui.AppActions
+import com.easyapp.translator.ui.AppLanguage
+import com.easyapp.translator.ui.welcome.ApplyingLanguageScreen
+import com.easyapp.translator.ui.welcome.LanguageWelcomePage
+import kotlinx.coroutines.delay
 import com.easyapp.translator.ui.AppUiState
 import com.easyapp.translator.ui.conversation.ConversationPage
 import com.easyapp.translator.ui.home.PrivacyNoticeDialog
@@ -69,6 +73,30 @@ private sealed interface SubPage {
  */
 @Composable
 fun AppRoot(state: AppUiState, actions: AppActions) {
+    // Idioma escolhido que está sendo aplicado: mostra o aviso e depois recarrega a interface.
+    var applying by remember { mutableStateOf<AppLanguage?>(null) }
+    val pending = applying
+    when {
+        pending != null -> {
+            ApplyingLanguageScreen(pending)
+            LaunchedEffect(pending) {
+                // Tempo para a pessoa ler o aviso no novo idioma antes de a tela recarregar.
+                delay(900)
+                actions.setAppLanguage(pending)
+            }
+        }
+        state.needsLanguageChoice -> LanguageWelcomePage(state.appLanguage) { chosen ->
+            actions.completeLanguageChoice()
+            if (chosen != state.appLanguage) applying = chosen
+        }
+        else -> MainNavigation(state, actions, onChangeLanguage = { chosen ->
+            if (chosen != state.appLanguage) applying = chosen
+        })
+    }
+}
+
+@Composable
+private fun MainNavigation(state: AppUiState, actions: AppActions, onChangeLanguage: (AppLanguage) -> Unit) {
     val colors = EasyTheme.colors
     val session = state.session
     var tab by rememberSaveable {
@@ -157,7 +185,12 @@ fun AppRoot(state: AppUiState, actions: AppActions) {
                         onPickYourLanguage = { push(SubPage.Languages(str(R.string.lang_page_yours), LanguageSide.TARGET)) },
                         onPickTheirLanguage = { push(SubPage.Languages(str(R.string.lang_page_theirs), LanguageSide.SOURCE)) },
                     )
-                    Tab.SETTINGS -> SettingsPage(state, actions, onOpenClaude = { push(SubPage.Claude) })
+                    Tab.SETTINGS -> SettingsPage(
+                        state = state,
+                        actions = actions,
+                        onOpenClaude = { push(SubPage.Claude) },
+                        onChangeLanguage = onChangeLanguage,
+                    )
                 }
             }
 

@@ -6,17 +6,26 @@ import androidx.annotation.StringRes
 
 /**
  * Guarda o contexto da aplicação para o código fora das telas (serviço, pipelines,
- * mensagens de estado) ler textos traduzidos com [str]. As telas usam `stringResource`.
+ * mensagens de estado) ler textos traduzidos com [str].
  */
 class EasyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        appContext = this
+        instance = this
+        refreshLocale()
     }
 
     companion object {
+        private lateinit var instance: EasyApplication
+
+        /** Contexto com o idioma do app aplicado (ver [AppLocale]). */
         lateinit var appContext: Context
             private set
+
+        /** Chamado ao trocar o idioma no Android 11–12, antes de recriar a tela. */
+        fun refreshLocale() {
+            appContext = AppLocale.wrap(instance)
+        }
     }
 }
 

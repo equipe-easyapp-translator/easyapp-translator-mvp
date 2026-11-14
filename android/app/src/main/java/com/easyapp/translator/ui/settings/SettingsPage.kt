@@ -47,7 +47,13 @@ import com.easyapp.translator.str
 
 /** Página de Ajustes (T063): aparência, padrões de cada modo, Claude, privacidade e sobre. */
 @Composable
-fun SettingsPage(state: AppUiState, actions: AppActions, onOpenClaude: () -> Unit) {
+fun SettingsPage(
+    state: AppUiState,
+    actions: AppActions,
+    onOpenClaude: () -> Unit,
+    /** Mostra o aviso "aplicando" e recarrega a interface no idioma escolhido. */
+    onChangeLanguage: (AppLanguage) -> Unit,
+) {
     val prefs = state.preferences
     var confirmReset by remember { mutableStateOf(false) }
 
@@ -58,18 +64,15 @@ fun SettingsPage(state: AppUiState, actions: AppActions, onOpenClaude: () -> Uni
         )
 
         SectionLabel(str(R.string.settings_language))
+        // Funciona em qualquer Android: no 13+ pelo idioma por app do sistema, no 11–12 pelo próprio app.
         EasyCard {
-            if (state.appLanguageSelectable) {
-                SegmentedControl(
-                    options = AppLanguage.entries,
-                    selected = state.appLanguage,
-                    onSelect = actions::setAppLanguage,
-                    optionDescription = { str(R.string.cd_app_language, it.label) },
-                ) { it.label }
-                Hint(str(R.string.settings_language_hint))
-            } else {
-                Hint(str(R.string.settings_language_old))
-            }
+            SegmentedControl(
+                options = AppLanguage.entries,
+                selected = state.appLanguage,
+                onSelect = onChangeLanguage,
+                optionDescription = { str(R.string.cd_app_language, it.label) },
+            ) { it.label }
+            Hint(str(R.string.settings_language_hint))
         }
 
         SectionLabel(str(R.string.settings_appearance))

@@ -143,7 +143,8 @@ Como turista ou recém-chegado que não lê português (persona Marco, italiano)
 1. **Dado** que o celular está em português, italiano ou inglês, **quando** o app abre, **então** a interface aparece nesse idioma.
 2. **Dado** que o celular está em outro idioma (espanhol, alemão…), **quando** o app abre, **então** a interface aparece em inglês.
 3. **Dado** que é o primeiro uso, **quando** o par de idiomas é definido, **então** o idioma do celular é o "seu" (destino) e o português é o da outra pessoa; num celular em português, o par é inglês → português.
-4. **Dado** um Android 13 ou superior, **quando** o usuário escolhe o idioma do app nos Ajustes, **então** o app muda na hora e mantém a escolha; no Android 11 e 12, o app explica que segue o idioma do celular.
+4. **Dado** que é a primeira abertura, **quando** o app abre, **então** uma tela de boas-vindas, escrita nos três idiomas ao mesmo tempo, pede o idioma antes de qualquer outra coisa.
+5. **Dado** qualquer versão do Android, **quando** o usuário escolhe o idioma (na boas-vindas ou em Ajustes), **então** o app mostra "Aplicando o idioma…" já no idioma escolhido, recarrega a interface sozinho e mantém a escolha.
 
 ## Limites do MVP
 
